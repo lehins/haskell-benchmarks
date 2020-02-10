@@ -6,6 +6,7 @@ module Main where
 
 import Control.Scheduler
 import Criterion.Main
+import Criterion.Types
 import Data.Bits
 import Data.Int
 import Data.Massiv.Array
@@ -124,7 +125,7 @@ main = do
   pcgFastParWS <- initWorkerStates Par (const FastPCG.createSystemRandom)
   mtSeqWS <- initWorkerStates Seq (const MT.getStdGen)
   mtParWS <- initWorkerStates Par (const MT.getStdGen)
-  defaultMain
+  defaultMainWith (defaultConfig  { csvFile = Just "benchmarks.csv" })
     [ bgroup
         "Disqualified/next/Seq"
         [ bench "random" $ nfIO (randomArrayPureSeq stdGen next sz)
