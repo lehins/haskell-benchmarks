@@ -20,6 +20,7 @@ library
 
   other-modules:
   build-depends:       base >= 4.8 && < 5
+                     , bytestring
                      , massiv
                      , scheduler
                      , random
