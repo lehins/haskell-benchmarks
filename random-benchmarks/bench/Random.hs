@@ -6,11 +6,18 @@ module Main where
 
 import Control.Scheduler
 import Criterion.Main
+import Crypto.Cipher.ChaCha as ChaCha
 import Data.Bits
+import Data.ByteArray as BA
+import Data.ByteString as BS
+import Data.ByteString.Builder as BS
+import Data.ByteString.Lazy as BL
 import Data.Int
+import Data.IORef
 import Data.Massiv.Array
 import Data.PCGen
 import Data.Word
+import Foreign.Storable (peek)
 import Lib
 import Random.MWC.Primitive as AC
 import Random.MWC.Pure as AC
@@ -31,6 +38,21 @@ import System.Random.TF as TF
 import qualified System.Random.Mersenne as MT
 import qualified System.Random.Xorshift128Plus as Xorshift128Plus
 import Text.Printf
+
+chaChaNext :: Integral i => IORef ChaCha.StateSimple -> IO i
+chaChaNext ref = do
+    !st <- readIORef ref
+    let (ba, st') = ChaCha.generateSimple st 8 :: (BA.Bytes, ChaCha.StateSimple)
+    !w64 <- BA.withByteArray ba (\ptr -> do peek ptr :: IO Word64)
+    writeIORef ref st'
+    return $ fromIntegral w64
+
+mkChaCha :: ChaCha.StateSimple
+mkChaCha = ChaCha.initializeSimple $ BS.concat . BL.toChunks $ BS.toLazyByteString $ BS.string7 "please insert 40 bytes of randomness here"
+
+theChaChaState :: IO (IORef ChaCha.StateSimple)
+theChaChaState = newIORef mkChaCha
+{-# NOINLINE theChaChaState #-}
 
 instance RandomGen AC.Seed where
   next !g =
@@ -124,6 +146,7 @@ main = do
   pcgFastParWS <- initWorkerStates Par (const FastPCG.createSystemRandom)
   mtSeqWS <- initWorkerStates Seq (const MT.getStdGen)
   mtParWS <- initWorkerStates Par (const MT.getStdGen)
+  ccSeqWS <- initWorkerStates Seq (const theChaChaState)
   defaultMain
     [ bgroup
         "Disqualified/next/Seq"
@@ -274,6 +297,8 @@ main = do
                   nfIO (randomArrayWord64 pcgFastSeqWS sz FastPCG.uniform)
                 , bench "mersenne-random" $
                   nfIO (randomArrayWord64 mtSeqWS sz MT.random)
+                , bench "chacha" $
+                  nfIO (randomArrayWord64 ccSeqWS sz chaChaNext)
                 ]
             , bgroup
                 "Par"
