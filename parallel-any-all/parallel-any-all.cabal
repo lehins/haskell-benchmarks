@@ -1,0 +1,69 @@
+name:                parallel-any-all
+version:             0.1.0.0
+synopsis:            Short description
+description:         Please see the README on GitHub at <https://github.com/lehins/parallel-any-all#readme>
+homepage:            https://github.com/lehins/parallel-any-all
+license:             BSD3
+license-file:        LICENSE
+author:              Alexey Kuleshevich
+maintainer:          alexey@kuleshevi.ch
+copyright:           2020 Alexey Kuleshevich
+category:            Algorithms
+build-type:          Simple
+extra-source-files:  README.md
+                   , CHANGELOG.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Lib
+
+  other-modules:
+  build-depends:       base            >= 4.8 && < 5
+                     , massiv
+                     , scheduler
+
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+                       -Wincomplete-record-updates
+                       -Wincomplete-uni-patterns
+                       -Wredundant-constraints
+
+
+benchmark any
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      bench
+  main-is:             Any.hs
+  ghc-options:         -Wall -threaded -O2 -rtsopts -with-rtsopts=-N8
+  build-depends:       base
+                     , criterion
+                     , massiv
+                     , scheduler
+                     , vector
+  default-language:    Haskell2010
+
+
+-- test-suite tests
+--   type:               exitcode-stdio-1.0
+--   hs-source-dirs:     tests
+--   main-is:            Main.hs
+--   other-modules:      Common
+--                     , LibSpec
+--                     , Spec
+--   build-depends:      base             >= 4.8 && < 5
+--                     , parallel-any-all
+--                     , hspec
+--                     , QuickCheck
+
+--   default-language:   Haskell2010
+--   ghc-options:        -Wall
+--                       -Wincomplete-record-updates
+--                       -Wincomplete-uni-patterns
+--                       -Wredundant-constraints
+--                       -fno-warn-orphans
+--                       -threaded
+--                       -with-rtsopts=-N2
+
+source-repository head
+  type:     git
+  location: https://github.com/lehins/parallel-any-all
