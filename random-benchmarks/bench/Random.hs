@@ -300,28 +300,33 @@ main = do
                     "Pure"
                     [ bench "splitmix (64)" $
                       nfIO (randomArrayPureSeq sm64Gen SM64.nextWord64 sz)
-                    , bench "xorshift (64)" $
-                      nfIO (randomArrayPureSeq xor64Gen random64to64 sz)
-                    , bench "Xorshift128Plus" $
-                      nfIO
-                        (randomArrayPureSeq xor128Gen Xorshift128Plus.next sz)
-                    , bench "pcg-random (fast)" $
-                      nfIO (randomArrayPureSeq pcgFastGen random64to64 sz)
-                    , bench "pcg-random" $
-                      nfIO (randomArrayPureSeq pcgGen random64to64 sz)
+                    , bench "splitmix (64)" $
+                      nfIO (randomArrayPureSeq sm64Gen random64 sz)
+                    -- , bench "xorshift (64)" $
+                    --   nfIO (randomArrayPureSeq xor64Gen random64to64 sz)
+                    -- , bench "Xorshift128Plus" $
+                    --   nfIO
+                    --     (randomArrayPureSeq xor128Gen Xorshift128Plus.next sz)
+                    -- , bench "pcg-random (fast)" $
+                    --   nfIO (randomArrayPureSeq pcgFastGen random64to64 sz)
+                    -- , bench "pcg-random" $
+                    --   nfIO (randomArrayPureSeq pcgGen random64to64 sz)
                     ]
                 , bgroup
                     "Stateful"
-                    [ bench "sfmt" $
-                      nfIO (randomArrayWord64 sfmtSeqWS sz SFMT.uniform)
-                    , bench "pcg-random (fast)" $
-                      nfIO (randomArrayWord64 pcgFastSeqWS sz FastPCG.uniform)
-                    , bench "pcg-random" $
-                      nfIO (randomArrayWord64 pcgSeqWS sz PCG.uniform)
-                    , bench "mersenne-random" $
-                      nfIO (randomArrayWord64 mtSeqWS sz MT.random)
-                    , bench "mwc-random" $
+                      -- bench "sfmt" $
+                    --   nfIO (randomArrayWord64 sfmtSeqWS sz SFMT.uniform)
+                    -- , bench "pcg-random (fast)" $
+                    --   nfIO (randomArrayWord64 pcgFastSeqWS sz FastPCG.uniform)
+                    -- , bench "pcg-random" $
+                    --   nfIO (randomArrayWord64 pcgSeqWS sz PCG.uniform)
+                    -- , bench "mersenne-random" $
+                    --   nfIO (randomArrayWord64 mtSeqWS sz MT.random)
+                    -- ,
+                    [ bench "mwc-random" $
                       nfIO (randomArrayWord64 mwcSeqWS sz MWC.uniform)
+                    , bench "mwc-random" $
+                      nfIO (randomArrayWord64 mwcSeqWS sz randomM)
                     ]
                 ]
             , bgroup
