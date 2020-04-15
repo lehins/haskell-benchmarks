@@ -1,0 +1,37 @@
+resolver: nightly-2020-04-13
+packages:
+- .
+allow-newer: true
+extra-deps:
+- AC-Random-0.1@sha256:1c0d463b032a02ca3dbd9d23fdc0f893ef730cc924de8c801c51594226add25f,1752
+- Xorshift128Plus-0.1.0.1@sha256:1796b2e442c0273660ee3691023cdbfdf8eb9bd53d0055f2143c780fbfd6f9f8,1555
+#- random-1.1@sha256:7b67624fd76ddf97c206de0801dc7e888097e9d572974be9b9ea6551d76965df,1777
+#- mersenne-random-pure64-0.2.2.0@sha256:853f225100e5d8edbedcd21a88590f5b02a4e225f9129a474ac074417e07b85f,2474
+#- xorshift-2.0.1@sha256:90fb03d2388068a61ef2f22db0a5d10d43b7befa60d552e4884e4b81c4abcb52,1315
+- Random123-0.2.0@sha256:179a04fbc3ea8cb5de1f8e3501f643d91a6c1a73fb7b4f60b26761e038f50f3c,1989
+#- tf-random-0.5@sha256:14012837d0f0e18fdbbe3d56e67da8622ee5e20b180abce952dd50bd9f36b326,3983
+#- pcg-random-0.1.3.6@sha256:ff9c6b2ed237668250ad9676e35fcf82586404926771d6a1d8eca54e7c92030a,2559
+#- pcgen-2.0.1@sha256:d6b3d14455898fbfa45691131dfca52ea715a703afe3832154eb173d95d93bf0,1909
+#- splitmix-0.0.3@sha256:a27ceded6f6eb37c8eef67a34afac589d281cd1548e8ae8b75ac7dfd3b293830,4728
+
+- mwc-random-0.14.0.0@sha256:6ae33e246e91f66f621caabb2323b431c8dab57427a417a98f5cac3d82eb7b21,1810
+- sfmt-0.1.1@sha256:c6aa7ac2599a814cd0bc69941615b46da6f0241f82da612342ca59f935ab1ed7,1429
+- mersenne-random-1.0.0.1@sha256:c2c7c88765030e4a6003e921e7676858a048f75bc2f38d58ddafd3b102be6d82,3637
+
+- github: idontgetoutmuch/random
+  commit: 02b800251f0ab5a060f049dc928e6d1220d042f4
+- github: lehins/splitmix
+  commit: bb92e025a0d0a0353e2d6369191fecec8e8c99ad
+- github: lehins/pcg-random
+  commit: 073a3c75b6b2019ac3183c444ecb61fad78fd528
+- github: lehins/pcgen
+  commit: 1ccf01277415045e273d1ccd846e8d38d3ac542c
+- github: lehins/tf-random
+  commit: 20d5d9a91efca0eb889119c6b23749355e2cd4fc
+- github: lehins/mersenne-random-pure64
+  commit: 9646ee1e2f941c1f5264ed80544960af42d4aec3
+- github: lehins/xorshift
+  commit: 21f6a1c7522f3658bf418c575554f5b739bfec47
+flags:
+  splitmix:
+    random: false
