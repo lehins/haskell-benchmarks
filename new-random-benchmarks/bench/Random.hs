@@ -22,7 +22,7 @@ import Random.MWC.Primitive as AC
 --import Random.MWC.Pure as AC
 import Random.Xorshift.Int32
 import Random.Xorshift.Int64
-import System.Random
+import System.Random as Random
 import System.Random.Mersenne.Pure64 as PureMT
 -- import System.Random.MWC as MWC
 -- import System.Random.PCG as PCG
@@ -67,18 +67,55 @@ genManyRandom g0 n = go g0 0
           (val, g') -> val `seq` go g' (i + 1)
       | otherwise = g `seq` ()
 
+genManyRandomRange :: forall a g . (Bounded a, Enum a, Random a, RandomGen g) => g -> Int -> ()
+genManyRandomRange g0 n = go g0 0
+  where
+    (l, h) = (succ (minBound :: a), pred (maxBound :: a))
+    go g i
+      | i < n =
+        case Random.randomR (l, h) g of
+          (val, g') -> val `seq` go g' (i + 1)
+      | otherwise = g `seq` ()
+
+-- genManyUniformRange :: forall a g . (Bounded a, Enum a, UniformRange a, RandomGen g) => g -> Int -> ()
+-- genManyUniformRange g0 n = go g0 0
+--   where
+--     (l, h) = (succ (minBound :: a), pred (maxBound :: a))
+--     go g i
+--       | i < n 
+--         case Random.uniformR (l, h) g of
+--           (val, g') -> val `seq` go g' (i + 1)
+--       | otherwise = g `seq` ()
+
 main :: IO ()
 main = do
   let !sz = 1048576
   defaultMain
     [ bgroup "Pure"
-      [ pureBench @Word8 sz
-      , pureBench @Word16 sz
-      , pureBench @Word32 sz
-      , pureBench @Word64 sz
-      , pureBench @Char sz
-      , pureBench @Bool sz
-      , pureBench @Integer sz
+      [ bgroup "Uniform"
+        [ pureBench @Word8 sz
+        , pureBench @Word16 sz
+        , pureBench @Word32 sz
+        , pureBench @Word64 sz
+        , pureBench @Int8 sz
+        , pureBench @Int16 sz
+        , pureBench @Int32 sz
+        , pureBench @Int64 sz
+        , pureBench @Char sz
+        , pureBench @Bool sz
+        , pureBench @Integer sz
+        ]
+      , bgroup "Range"
+        [ pureBenchRange @Word8 sz
+        , pureBenchRange @Word16 sz
+        , pureBenchRange @Word32 sz
+        , pureBenchRange @Word64 sz
+        , pureBenchRange @Int8 sz
+        , pureBenchRange @Int16 sz
+        , pureBenchRange @Int32 sz
+        , pureBenchRange @Int64 sz
+        , pureBenchRange @Char sz
+        ]
       ]
     ]
 
@@ -113,6 +150,39 @@ pureBench sz =
         , bench "pcgen" $ nf (genManyRandom @a pcGen) sz
         , bench "splitmix (32)" $ nf (genManyRandom @a sm32Gen) sz
         , bench "splitmix (64)" $ nf (genManyRandom @a sm64Gen) sz
+        ]
+
+pureBenchRange ::
+     forall a. (Typeable a, Random a, Enum a, Bounded a)
+  => Int
+  -> Benchmark
+pureBenchRange sz =
+  let !stdGen = mkStdGen 2020
+      !mtGen = pureMT 2020
+      !xor32Gen = makeXorshift32 (2020 :: Int)
+      !xor64Gen = makeXorshift64 (2020 :: Int)
+      !acGen = AC.seed [2020]
+      !tfGen = mkTFGen 2020
+      !pcgGen = PurePCG.initFrozen 2020 0
+      !pcgFastGen = PureFastPCG.initFrozen 2020
+      !xor128Gen = Xorshift128Plus.initialize 2020
+      !pcGen = mkPCGen (2020 :: Int)
+      !sm32Gen = SM32.mkSMGen 2020
+      !sm64Gen = SM64.mkSMGen 2020
+   in bgroup
+        (showsTypeRep (typeRep (Proxy :: Proxy a)) "")
+        [ bench "random" $ nf (genManyRandomRange @a stdGen) sz
+        , bench "mersenne-random-pure64" $ nf (genManyRandomRange @a mtGen) sz
+        , bench "xorshift (32)" $ nf (genManyRandomRange @a xor32Gen) sz
+        , bench "xorshift (64)" $ nf (genManyRandomRange @a xor64Gen) sz
+        , bench "AC-Random" $ nf (genManyRandomRange @a acGen) sz
+        , bench "tf-random" $ nf (genManyRandomRange @a tfGen) sz
+        , bench "pcg-random" $ nf (genManyRandomRange @a pcgGen) sz
+        , bench "pcg-random (fast)" $ nf (genManyRandomRange @a pcgFastGen) sz
+        , bench "Xorshift128Plus" $ nf (genManyRandomRange @a xor128Gen) sz
+        , bench "pcgen" $ nf (genManyRandomRange @a pcGen) sz
+        , bench "splitmix (32)" $ nf (genManyRandomRange @a sm32Gen) sz
+        , bench "splitmix (64)" $ nf (genManyRandomRange @a sm64Gen) sz
         ]
 
 -- mkStatefulBench sz = do

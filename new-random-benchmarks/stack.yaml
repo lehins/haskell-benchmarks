@@ -18,8 +18,9 @@ extra-deps:
 - sfmt-0.1.1@sha256:c6aa7ac2599a814cd0bc69941615b46da6f0241f82da612342ca59f935ab1ed7,1429
 - mersenne-random-1.0.0.1@sha256:c2c7c88765030e4a6003e921e7676858a048f75bc2f38d58ddafd3b102be6d82,3637
 
-- github: idontgetoutmuch/random
-  commit: 02b800251f0ab5a060f049dc928e6d1220d042f4
+- ../../random
+# - github: idontgetoutmuch/random
+#   commit: 0d4c8cdfbc42cdcc2f66be10071d9aa9ece8f849
 - github: lehins/splitmix
   commit: bb92e025a0d0a0353e2d6369191fecec8e8c99ad
 - github: lehins/pcg-random
