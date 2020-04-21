@@ -67,10 +67,9 @@ genManyRandom g0 n = go g0 0
           (val, g') -> val `seq` go g' (i + 1)
       | otherwise = g `seq` ()
 
-genManyRandomRange :: forall a g . (Bounded a, Enum a, Random a, RandomGen g) => g -> Int -> ()
-genManyRandomRange g0 n = go g0 0
+genManyRandomRange :: (Random a, RandomGen g) => (a, a) -> g -> Int -> ()
+genManyRandomRange (l, h) g0 n = go g0 0
   where
-    (l, h) = (succ (minBound :: a), pred (maxBound :: a))
     go g i
       | i < n =
         case Random.randomR (l, h) g of
@@ -87,9 +86,13 @@ genManyRandomRange g0 n = go g0 0
 --           (val, g') -> val `seq` go g' (i + 1)
 --       | otherwise = g `seq` ()
 
+mkRange :: forall a . (Enum a, Bounded a) => (a, a)
+mkRange = (succ (minBound :: a), pred (maxBound :: a))
+
 main :: IO ()
 main = do
   let !sz = 1048576
+  
   defaultMain
     [ bgroup "Pure"
       [ bgroup "Uniform"
@@ -106,15 +109,17 @@ main = do
         , pureBench @Integer sz
         ]
       , bgroup "Range"
-        [ pureBenchRange @Word8 sz
-        , pureBenchRange @Word16 sz
-        , pureBenchRange @Word32 sz
-        , pureBenchRange @Word64 sz
-        , pureBenchRange @Int8 sz
-        , pureBenchRange @Int16 sz
-        , pureBenchRange @Int32 sz
-        , pureBenchRange @Int64 sz
-        , pureBenchRange @Char sz
+        [ pureBenchRange (mkRange @Word8) sz
+        , pureBenchRange (mkRange @Word16) sz
+        , pureBenchRange (mkRange @Word32) sz
+        , pureBenchRange (mkRange @Word64) sz
+        , pureBenchRange (mkRange @Int8) sz
+        , pureBenchRange (mkRange @Int16) sz
+        , pureBenchRange (mkRange @Int32) sz
+        , pureBenchRange (mkRange @Int64) sz
+        , pureBenchRange (mkRange @Char) sz
+        , pureBenchRange (100, 200 :: Integer) sz
+        , pureBenchRange (123456789087654323456789087654323, 23542123456789087654323456789087654323 :: Integer) sz
         ]
       ]
     ]
@@ -153,10 +158,11 @@ pureBench sz =
         ]
 
 pureBenchRange ::
-     forall a. (Typeable a, Random a, Enum a, Bounded a)
-  => Int
+     forall a. (Typeable a, Random a)
+  => (a, a)
+  -> Int
   -> Benchmark
-pureBenchRange sz =
+pureBenchRange r sz =
   let !stdGen = mkStdGen 2020
       !mtGen = pureMT 2020
       !xor32Gen = makeXorshift32 (2020 :: Int)
@@ -171,18 +177,18 @@ pureBenchRange sz =
       !sm64Gen = SM64.mkSMGen 2020
    in bgroup
         (showsTypeRep (typeRep (Proxy :: Proxy a)) "")
-        [ bench "random" $ nf (genManyRandomRange @a stdGen) sz
-        , bench "mersenne-random-pure64" $ nf (genManyRandomRange @a mtGen) sz
-        , bench "xorshift (32)" $ nf (genManyRandomRange @a xor32Gen) sz
-        , bench "xorshift (64)" $ nf (genManyRandomRange @a xor64Gen) sz
-        , bench "AC-Random" $ nf (genManyRandomRange @a acGen) sz
-        , bench "tf-random" $ nf (genManyRandomRange @a tfGen) sz
-        , bench "pcg-random" $ nf (genManyRandomRange @a pcgGen) sz
-        , bench "pcg-random (fast)" $ nf (genManyRandomRange @a pcgFastGen) sz
-        , bench "Xorshift128Plus" $ nf (genManyRandomRange @a xor128Gen) sz
-        , bench "pcgen" $ nf (genManyRandomRange @a pcGen) sz
-        , bench "splitmix (32)" $ nf (genManyRandomRange @a sm32Gen) sz
-        , bench "splitmix (64)" $ nf (genManyRandomRange @a sm64Gen) sz
+        [ bench "random" $ nf (genManyRandomRange r stdGen) sz
+        , bench "mersenne-random-pure64" $ nf (genManyRandomRange r mtGen) sz
+        , bench "xorshift (32)" $ nf (genManyRandomRange r xor32Gen) sz
+        , bench "xorshift (64)" $ nf (genManyRandomRange r xor64Gen) sz
+        , bench "AC-Random" $ nf (genManyRandomRange r acGen) sz
+        , bench "tf-random" $ nf (genManyRandomRange r tfGen) sz
+        , bench "pcg-random" $ nf (genManyRandomRange r pcgGen) sz
+        , bench "pcg-random (fast)" $ nf (genManyRandomRange r pcgFastGen) sz
+        , bench "Xorshift128Plus" $ nf (genManyRandomRange r xor128Gen) sz
+        , bench "pcgen" $ nf (genManyRandomRange r pcGen) sz
+        , bench "splitmix (32)" $ nf (genManyRandomRange r sm32Gen) sz
+        , bench "splitmix (64)" $ nf (genManyRandomRange r sm64Gen) sz
         ]
 
 -- mkStatefulBench sz = do
