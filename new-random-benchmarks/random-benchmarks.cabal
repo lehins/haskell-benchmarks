@@ -14,6 +14,15 @@ extra-source-files:  README.md
                    , CHANGELOG.md
 cabal-version:       >=1.10
 
+executable Analysis
+  hs-source-dirs: app
+  main-is:        Main.hs
+  build-depends: base
+               , Frames
+               , lens
+               , vinyl
+               , inline-r
+               , text
 
 benchmark random
   type: exitcode-stdio-1.0
