@@ -18,11 +18,13 @@ extra-deps:
 - sfmt-0.1.1@sha256:c6aa7ac2599a814cd0bc69941615b46da6f0241f82da612342ca59f935ab1ed7,1429
 - mersenne-random-1.0.0.1@sha256:c2c7c88765030e4a6003e921e7676858a048f75bc2f38d58ddafd3b102be6d82,3637
 
-- ../../random
-# - github: idontgetoutmuch/random
-#   commit: 0d4c8cdfbc42cdcc2f66be10071d9aa9ece8f849
+#- ../../random
+- github: idontgetoutmuch/random
+  commit: 7f91c2fb16a83e1cd309f1c115caef672a453b07
+- github: lehins/quickcheck
+  commit: a92eb035ce5dbe46aa5aadde58b193a369cee144
 - github: lehins/splitmix
-  commit: bb92e025a0d0a0353e2d6369191fecec8e8c99ad
+  commit: c0cbdc628ab318efbcf59dbd00810e9507c97cc4
 - github: lehins/pcg-random
   commit: 073a3c75b6b2019ac3183c444ecb61fad78fd528
 - github: lehins/pcgen
@@ -33,6 +35,3 @@ extra-deps:
   commit: 9646ee1e2f941c1f5264ed80544960af42d4aec3
 - github: lehins/xorshift
   commit: 21f6a1c7522f3658bf418c575554f5b739bfec47
-flags:
-  splitmix:
-    random: false
