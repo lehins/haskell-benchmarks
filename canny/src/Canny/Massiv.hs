@@ -4,7 +4,7 @@
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
-module Canny.Massiv (runCanny) where
+module Canny.Massiv where
 -- | Canny edge detector.
 --
 --   NOTE: for best performance this needs to be compiled with the following GHC options:
@@ -47,11 +47,22 @@ runCanny threshLow threshHigh arrInput = do
   wildfire arrSuppress arrStrong
 
 
+blur :: Image S Y' Float -> IO (Image S Y' Float)
+blur = blurSepX >=> blurSepY
+{-# INLINE blur #-}
+
+
+grad :: Float -> Image S Y' Float -> IO (Array S Ix2 Float, Array S Ix2 Word8)
+grad thresh img = do
+  x <- gradientX img
+  y <- gradientY img
+  gradientMagOrient thresh x y
+{-# INLINE grad #-}
 
 -------------------------------------------------------------------------------
 -- | SRGB to greyscale conversion.
 toGreyScale :: Image S (SRGB 'NonLinear) Word8 -> IO (Image S Y' Float)
-toGreyScale = pure . compute . A.map rgbPixelLuma
+toGreyScale = computeIO . A.map rgbPixelLuma
 {-# INLINE toGreyScale #-}
 
 -- | Separable Gaussian blur in the X direction.
@@ -69,7 +80,7 @@ blurSepX = computeIO . mapStencil Edge
 
 -- | Separable Gaussian blur in the Y direction.
 blurSepY :: Image S Y' Float -> IO (Image S Y' Float)
-blurSepY = pure . compute . mapStencil Edge
+blurSepY = computeIO . mapStencil Edge
   (makeStencil (Sz2 5 1) (2 :. 0) $ \get ->
        get (-2 :. 0)     +
        get (-1 :. 0) * 4 +
@@ -81,13 +92,13 @@ blurSepY = pure . compute . mapStencil Edge
 
 -- | Compute gradient in the x direction.
 gradientX :: Image S Y' Float -> IO (Image S Y' Float)
-gradientX = pure . compute . mapStencil Edge sobelX
+gradientX = computeIO . mapStencil Edge sobelX
 {-# INLINE gradientX #-}
 
 
 -- | Compute gradient in the y direction.
 gradientY :: Image S Y' Float -> IO (Image S Y' Float)
-gradientY = pure . compute . mapStencil Edge sobelY
+gradientY = computeIO . mapStencil Edge sobelY
 {-# INLINE gradientY #-}
 
 sobelX :: Stencil Ix2 (Pixel Y' Float) (Pixel Y' Float)
@@ -179,7 +190,7 @@ suppress !threshLow !threshHigh (!dMag, !dOrient) =
         !o = unsafeIndex dOrient ix
         !m = getMag (0 :. 0)
         {-# INLINE isMax #-}
-        isMax intensity1 intensity2
+        isMax !intensity1 !intensity2
           | m < threshLow = edgeNone
           | m < intensity1 = edgeNone
           | m < intensity2 = edgeNone
@@ -253,3 +264,6 @@ wildfire img vStrong = do
               push (y + 1 :. x + 1) >>=
               go
 {-# INLINE wildfire #-}
+
+
+--------------------------------------------

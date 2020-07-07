@@ -1,10 +1,12 @@
 {-# LANGUAGE ConstraintKinds   #-}
 {-# LANGUAGE FlexibleContexts  #-}
+{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ViewPatterns      #-}
 
 {-# LANGUAGE BangPatterns  #-}
 {-# LANGUAGE TypeFamilies  #-}
 {-# LANGUAGE TypeOperators #-}
+{-# OPTIONS -fno-warn-orphans #-}
 -- This module defines the final phase of the Canny algorithm, a recursive
 -- algorithm to "connect" pixels of the output image.
 --
@@ -30,13 +32,13 @@ module Canny.Accelerate where
 import qualified Prelude                                as P
 import Prelude (IO, Functor(..), Monad(..), (>>=), seq, otherwise)
 
+import Control.DeepSeq
 import Data.Array.Accelerate                            as A
 import Data.Array.Accelerate.IO.Codec.BMP               as A
 import Data.Array.Accelerate.Data.Colour.RGB
 import Data.Array.Accelerate.IO.Data.Vector.Storable    as A
 import qualified Data.Array.Accelerate.Examples.Internal as A
 import Data.Array.Repa.Repr.Accelerate                  as A
-import Data.Array.Repa.Repr.Accelerate                  ( A )
 import Data.Array.Repa.Repr.Unboxed                     ( U )
 import qualified Data.Array.Repa                        as R
 import qualified Data.Vector.Unboxed                    as V
@@ -46,6 +48,9 @@ import qualified Data.Vector.Storable                   as VS
 
 fromJuicyPixels :: JP.Image JP.PixelRGBA8 -> Image RGBA32
 fromJuicyPixels (JP.Image w h vec) = fromVectors (Z :. h :. w) (VS.unsafeCast vec)
+
+fromJuicyPixelsY :: JP.Image JP.PixelF -> Image Float
+fromJuicyPixelsY (JP.Image w h vec) = fromVectors (Z :. h :. w) vec
 
 
 runCanny ::
@@ -69,6 +74,15 @@ canny (constant -> low) (constant -> high)
   where
     stage1 x = (x, selectStrong x)
 
+blur :: A.Backend -> Image Float -> Image Float
+blur backend img = A.run backend $ gaussianY $ gaussianX $ use img
+{-# INLINE blur #-}
+
+
+-- grad :: A.Backend -> Image Float -> IO (Image Float)
+-- grad backend = gradientX >=> gradientY >=> A.run backend
+-- {-# INLINE grad #-}
+
 
 -- Accelerate component --------------------------------------------------------
 
@@ -80,6 +94,13 @@ type Stencil1x5 a       = (Stencil3 a, Stencil3 a, Stencil3 a, Stencil3 a, Stenc
 -- Classification of the output pixel
 data Orient     = Undef | PosD | Vert | NegD | Horiz
 data Edge       = None  | Weak | Strong
+
+instance Elt e => NFData (R.Array A R.DIM1 e) where
+  rnf = (`R.deepSeqArray` ())
+instance Elt e => NFData (R.Array A R.DIM2 e) where
+  rnf = (`R.deepSeqArray` ())
+
+
 
 orient :: Orient -> Int
 orient Undef    = 0

@@ -2,7 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE PackageImports, BangPatterns, QuasiQuotes, PatternGuards,
              MagicHash, ScopedTypeVariables, TypeFamilies #-}
-{-# OPTIONS -Wall -fno-warn-missing-signatures -fno-warn-incomplete-patterns -fno-warn-orphans #-}
+{-# OPTIONS -fno-warn-missing-signatures -fno-warn-incomplete-patterns -fno-warn-orphans #-}
 module Canny.Repa where
 -- | Canny edge detector.
 --
@@ -33,6 +33,8 @@ type Image a    = Array U DIM2 a
 
 instance Unbox e => NFData (Image e) where
   rnf = (`deepSeqArray` ())
+instance Unbox e => NFData (Array U DIM1 e) where
+  rnf = (`deepSeqArray` ())
 
 
 -- Constants ------------------------------------------------------------------
@@ -54,6 +56,13 @@ fromJuicyPixels img@(JP.Image w h _) =
   R.fromFunction (R.Z R.:. h R.:. w) $ \(R.Z R.:. i R.:. j) ->
     case JP.pixelAt img j i of
       JP.PixelRGB8 r g b -> (r, g, b)
+
+fromJuicyPixelsY :: JP.Image JP.PixelF -> Image Float
+fromJuicyPixelsY img@(JP.Image w h _) =
+  R.computeUnboxedS $
+  R.fromFunction (R.Z R.:. h R.:. w) $ \(R.Z R.:. i R.:. j) ->
+    JP.pixelAt img j i
+
 
 toJuicyPixels :: Image Word8 -> JP.Image JP.Pixel8
 toJuicyPixels img = JP.generateImage (\x y -> R.index img (Z :. y :. x)) n m
@@ -85,6 +94,19 @@ runCanny threshLow threshHigh arrInput
         arrEdges        <- wildfire arrSuppress arrStrong
 
         pure arrEdges
+
+
+blur :: Image Float -> IO (Image Float)
+blur = blurSepX >=> blurSepY
+{-# INLINE blur #-}
+
+
+grad :: Float -> Image Float -> IO (Image (Float, Word8))
+grad thresh img = do
+  x <- gradientX img
+  y <- gradientY img
+  gradientMagOrient thresh x y
+{-# INLINE grad #-}
 
 
 -------------------------------------------------------------------------------
