@@ -34,6 +34,11 @@ toImageY =
   M.compute .
   M.map ((\(PixelY' x) -> PixelY x :: Pixel (Y D65) Float) . rgbPixelLuma)
 
+toImageY' ::
+     Array S Ix2 (Pixel Y' Word8)
+  -> Array S Ix2 (Pixel (Y D65) Word8)
+toImageY' = M.compute . M.map ((\(PixelY' x) -> PixelY x :: Pixel (Y D65) Word8))
+
 fromRepaImageY :: R.Image Word8 -> IO (Image S (Y D65) Word8)
 fromRepaImageY imgY = do
   mimg <- fromDynamicImageM $ JP.ImageY8 $ R.toJuicyPixels imgY
@@ -72,12 +77,16 @@ main = do
         gradAcc
       strongMass = supMass >>= \sup -> (,) sup <$> M.selectStrong sup
       strongRepa = supRepa >>= \sup -> (,) sup <$> R.selectStrong sup
-      strongAcc = (A.toRepa supAcc, A.toRepa . A.run A.CPU . A.selectStrong . A.use $ supAcc)
+      strongAcc =
+        ( A.toRepa supAcc
+        , A.toRepa . A.run A.CPU . A.selectStrong . A.use $ supAcc)
   defaultMain
     [ bgroup
         "Canny"
         [ env (pure imgRGB) $ \img ->
             bench "massiv" $ nfIO (M.runCanny low high img)
+        , env (pure imgRGB) $ \img ->
+            bench "massiv'" $ nfIO (M.runCanny' low high img)
         , env (pure (toRepaImageRGB imgRGB)) $ \img ->
             bench "repa" $ nfIO (R.runCanny low high img)
         , env (pure (toAccelerateImageRGB imgRGB)) $ \img ->
@@ -104,6 +113,8 @@ main = do
         "Gradient"
         [ env (M.toGreyScale imgRGB >>= M.blur) $ \img ->
             bench "massiv" $ nfIO (M.grad low img)
+        , env (M.toGreyScale imgRGB >>= M.blur) $ \img ->
+            bench "massiv." $ nfIO (M.gradientMagOrient' low img)
         , env (R.toGreyScale (toRepaImageRGB imgRGB) >>= R.blur) $ \img ->
             bench "repa" $ nfIO (R.grad low img)
         , env (pure (A.blur A.CPU $ toAccelerateImageY imgRGB)) $ \img ->
@@ -113,6 +124,8 @@ main = do
     , bgroup
         "Suppress"
         [ env gradMass $ \img -> bench "massiv" $ nfIO (M.suppress low high img)
+        , env (M.toGreyScale imgRGB >>= M.blur >>= M.gradientMagOrient' low) $ \img ->
+            bench "massiv'" $ nfIO (M.suppress' low high img)
         , env gradRepa $ \img -> bench "repa" $ nfIO (R.suppress low high img)
         , env (pure gradAcc) $ \img ->
             bench "accelerate" $
