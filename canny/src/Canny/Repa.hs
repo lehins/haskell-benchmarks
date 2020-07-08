@@ -54,14 +54,14 @@ edge Strong     = 255   :: Word8
 fromJuicyPixels :: JP.Image JP.PixelRGB8 -> Image (Word8, Word8, Word8)
 fromJuicyPixels img@(JP.Image w h _) =
   R.computeUnboxedS $
-  R.fromFunction (R.Z R.:. h R.:. w) $ \(R.Z R.:. i R.:. j) ->
+  R.fromFunction (Z :. h :. w) $ \(Z :. i :. j) ->
     case JP.pixelAt img j i of
       JP.PixelRGB8 r g b -> (r, g, b)
 
 fromJuicyPixelsY :: JP.Image JP.PixelF -> Image Float
 fromJuicyPixelsY img@(JP.Image w h _) =
   R.computeUnboxedS $
-  R.fromFunction (R.Z R.:. h R.:. w) $ \(R.Z R.:. i R.:. j) ->
+  R.fromFunction (Z :. h :. w) $ \(Z :. i :. j) ->
     JP.pixelAt img j i
 
 

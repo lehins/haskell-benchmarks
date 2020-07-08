@@ -1,7 +1,6 @@
 # Canny benchmarks
 
 
-Compiled with `-fllvm`:
 
 ```
 benchmarking Canny/massiv
