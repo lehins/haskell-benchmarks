@@ -48,6 +48,7 @@ benchmark bench-canny
   hs-source-dirs:      bench
   main-is:             CannyBench.hs
   ghc-options:         -threaded -O2 -rtsopts -with-rtsopts=-N
+                       -- -fllvm -optlo-O3 -fno-liberate-case -funfolding-use-threshold100 -funfolding-keeness-factor100
   build-depends:       base
                      , accelerate
                      , accelerate-io

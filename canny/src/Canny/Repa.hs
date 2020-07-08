@@ -4,6 +4,7 @@
              MagicHash, ScopedTypeVariables, TypeFamilies #-}
 {-# OPTIONS -fno-warn-missing-signatures -fno-warn-incomplete-patterns -fno-warn-orphans #-}
 module Canny.Repa where
+-- Copied from: https://github.com/haskell-repa/repa/blob/master/repa-examples/examples/Canny/src-repa/Main.hs
 -- | Canny edge detector.
 --
 --   NOTE: for best performance this needs to be compiled with the following GHC options:
