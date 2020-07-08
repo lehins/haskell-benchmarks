@@ -64,7 +64,9 @@ main :: IO ()
 main = do
   let !low = 50
       !high = 100
-  imgRGB :: Image S (SRGB 'NonLinear) Word8 <- readImageAuto "files/lena.bmp"
+  imgRGB :: Image S (SRGB 'NonLinear) Word8 <- readImageAuto
+    "/home/lehins/github/hip/hip/images/downloaded/frog-1920x1237.jpg"
+    --"files/lena.bmp"
   let gradMass = M.toGreyScale imgRGB >>= M.blur >>= M.grad low
       gradRepa = R.toGreyScale (toRepaImageRGB imgRGB) >>= R.blur >>= R.grad low
       gradAcc =
@@ -114,7 +116,7 @@ main = do
         [ env (M.toGreyScale imgRGB >>= M.blur) $ \img ->
             bench "massiv" $ nfIO (M.grad low img)
         , env (M.toGreyScale imgRGB >>= M.blur) $ \img ->
-            bench "massiv." $ nfIO (M.gradientMagOrient' low img)
+            bench "massiv'" $ nfIO (M.gradientMagOrient' low img)
         , env (R.toGreyScale (toRepaImageRGB imgRGB) >>= R.blur) $ \img ->
             bench "repa" $ nfIO (R.grad low img)
         , env (pure (A.blur A.CPU $ toAccelerateImageY imgRGB)) $ \img ->
@@ -149,5 +151,14 @@ main = do
             bench "repa" $ nfIO (R.wildfire sup strong)
         , env (pure strongAcc) $ \ ~(sup, strong) ->
             bench "accelerate" $ nfIO (A.wildfire sup strong)
+        ]
+    , bgroup
+        "Wildfire+Strong"
+        [ env supMass $ \ img ->
+            bench "massiv" $ nfIO (M.selectStrong img >>= M.wildfire img)
+        , env supMass $ \ img ->
+            bench "massiv'" $ nfIO (M.wildfire' img)
+        , env supRepa $ \ img ->
+            bench "repa" $ nfIO (R.selectStrong img >>= R.wildfire img)
         ]
     ]

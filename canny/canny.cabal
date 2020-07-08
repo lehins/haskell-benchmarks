@@ -43,7 +43,7 @@ library
                        -Wincomplete-uni-patterns
                        -Wredundant-constraints
 
-benchmark bench-accelerate
+benchmark bench-canny
   type:                exitcode-stdio-1.0
   hs-source-dirs:      bench
   main-is:             CannyBench.hs
