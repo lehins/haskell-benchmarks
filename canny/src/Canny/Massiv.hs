@@ -41,34 +41,15 @@ runCanny threshLow threshHigh arrInput = do
   arrGrey <- toGreyScale arrInput
   arrBluredX <- blurSepX arrGrey
   arrBlured <- blurSepY arrBluredX
-  arrDX <- gradientX arrBlured
-  arrDY <- gradientY arrBlured
-  arrMagOrient <- gradientMagOrient threshLow arrDX arrDY
+  arrMagOrient <- gradientMagOrient threshLow arrBlured
   arrSuppress <- suppress threshLow threshHigh arrMagOrient
-  arrStrong <- selectStrong arrSuppress
-  wildfire arrSuppress arrStrong
-
-runCanny' :: Float -> Float -> Image S (SRGB 'NonLinear) Word8 -> IO (Image S Y' Word8)
-runCanny' threshLow threshHigh arrInput = do
-  arrGrey <- toGreyScale arrInput
-  arrBluredX <- blurSepX arrGrey
-  arrBlured <- blurSepY arrBluredX
-  arrMagOrient <- gradientMagOrient' threshLow arrBlured
-  arrSuppress <- suppress' threshLow threshHigh arrMagOrient
-  wildfire' arrSuppress
+  vStrong <- selectStrong arrSuppress
+  wildfire arrSuppress vStrong
 
 
 blur :: Image S Y' Float -> IO (Image S Y' Float)
 blur = blurSepX >=> blurSepY
 {-# INLINE blur #-}
-
-
-grad :: Float -> Image S Y' Float -> IO (Array S Ix2 Float, Array S Ix2 Word8)
-grad thresh img = do
-  x <- gradientX img
-  y <- gradientY img
-  gradientMagOrient thresh x y
-{-# INLINE grad #-}
 
 -------------------------------------------------------------------------------
 -- | SRGB to greyscale conversion.
@@ -127,65 +108,11 @@ sobelY =  A.makeStencil (Sz2 3 3) (1 :. 1) $ \ f ->
 {-# INLINE sobelY #-}
 
 
--- | Classify the magnitude and orientation of the vector gradient.
 gradientMagOrient ::
      Float
   -> Image S Y' Float
-  -> Image S Y' Float
-  -> IO (Array S Ix2 Float, Array S Ix2 Word8)
-gradientMagOrient !threshLow !dX !dY = pure (mag, orient)
-  where
-    !mag = compute $ A.zipWith magnitude' dX dY
-    !orient = compute $ A.zipWith orientation dX dY
-    magnitude' :: Pixel Y' Float -> Pixel Y' Float -> Float
-    magnitude' (PixelY' x) (PixelY' y) = sqrt (x * x + y * y)
-    {-# INLINE magnitude' #-}
-    {-# INLINE orientation #-}
-    orientation :: Pixel Y' Float -> Pixel Y' Float -> Word8
-    orientation (PixelY' x) (PixelY' y)
-         -- Don't bother computing orientation if vector is below threshold.
-      | x >= negate threshLow
-      , x < threshLow
-      , y >= negate threshLow
-      , y < threshLow = orientUndef
-      | otherwise
-                -- Determine the angle of the vector and rotate it around a bit
-                -- to make the segments easier to classify.
-       =
-        let !d = atan2 y x
-            !dRot = (d - (pi / 8)) * (4 / pi)
-                -- Normalise angle to beween 0..8
-            !dNorm =
-              if dRot < 0
-                then dRot + 8
-                else dRot
-                -- Doing explicit tests seems to be faster than using the FP floor function.
-         in fromIntegral $
-            I#
-              (if dNorm >= 4
-                 then if dNorm >= 6
-                        then if dNorm >= 7
-                               then 255# -- 7
-                               else 192# -- 6
-                        else if dNorm >= 5
-                               then 128# -- 5
-                               else 64# -- 4
-                 else if dNorm >= 2
-                        then if dNorm >= 3
-                               then 255# -- 3
-                               else 192# -- 2
-                        else if dNorm >= 1
-                               then 128# -- 1
-                               else 64# -- 0
-               )
-{-# INLINE gradientMagOrient #-}
-
-
-gradientMagOrient' ::
-     Float
-  -> Image S Y' Float
   -> IO (Array U Ix2 (Float, Word8))
-gradientMagOrient' !threshLow !img =
+gradientMagOrient !threshLow !img =
   computeIO $
   mapStencil
     Edge
@@ -232,11 +159,11 @@ gradientMagOrient' !threshLow !img =
                                then 128## -- 1
                                else 64## -- 0
                )
-{-# INLINE gradientMagOrient' #-}
+{-# INLINE gradientMagOrient #-}
 
 
-suppress' :: Float -> Float -> (Array U Ix2 (Float, Word8)) -> IO (Image S Y' Word8)
-suppress' !threshLow !threshHigh !dMagOrient =
+suppress :: Float -> Float -> (Array U Ix2 (Float, Word8)) -> IO (Image S Y' Word8)
+suppress !threshLow !threshHigh !dMagOrient =
   computeIO $ mapStencil (Fill (0, 0)) (makeUnsafeStencil 3 1 comparePts) dMagOrient
   where
     {-# INLINE comparePts #-}
@@ -258,34 +185,6 @@ suppress' !threshLow !threshHigh !dMagOrient =
           | m < fst intensity2 = edgeNone
           | m < threshHigh = edgeWeak
           | otherwise = edgeStrong
-{-# INLINE suppress' #-}
-
--- | Suppress pixels that are not local maxima, and use the magnitude to classify maxima
---   into strong and weak (potential) edges.
-suppress :: Float -> Float -> (Array S Ix2 Float, Array S Ix2 Word8) -> IO (Image S Y' Word8)
-suppress !threshLow !threshHigh (!dMag, !dOrient) =
-  pure $ compute $ mapStencil (Fill 0) (makeUnsafeStencil 3 1 comparePts) dMag
-  where
-    {-# INLINE comparePts #-}
-    comparePts !ix getMag
-      | o == orientUndef = edgeNone
-      | o == orientHoriz = isMax (getMag (0 :. -1)) (getMag (0 :. 1))
-      | o == orientVert = isMax (getMag (-1 :. 0)) (getMag (1 :. 0))
-      | o == orientNegDiag = isMax (getMag (-1 :. 1)) (getMag (1 :. -1))
-      | o == orientPosDiag = isMax (getMag (-1 :. -1)) (getMag (1 :. 1))
-         -- | o == orientNegDiag   = isMax (getMag (-1 :. -1)) (getMag ( 1 :.  1)) --?????
-         -- | o == orientPosDiag   = isMax (getMag (-1 :.  1)) (getMag ( 1 :. -1)) --?????
-      | otherwise = edgeNone
-      where
-        !o = unsafeIndex dOrient ix
-        !m = getMag (0 :. 0)
-        {-# INLINE isMax #-}
-        isMax !intensity1 !intensity2
-          | m < threshLow = edgeNone
-          | m < intensity1 = edgeNone
-          | m < intensity2 = edgeNone
-          | m < threshHigh = edgeWeak
-          | otherwise = edgeStrong
 {-# INLINE suppress #-}
 
 
@@ -302,66 +201,11 @@ selectStrong =
 {-# INLINE selectStrong #-}
 
 
--- | Trace out strong edges in the final image.
---   Also trace out weak edges that are connected to strong edges.
 wildfire ::
      Image S Y' Word8 -- ^ Image with strong and weak edges set.
-  -> Array S Ix1 Ix1 -- ^ Array containing indices of strong edges.
+  -> Array S Ix1 Ix1
   -> IO (Image S Y' Word8)
 wildfire img vStrong = do
-  vStrong' <- A.thaw vStrong
-  -- Stack of image indices we still need to consider.
-  vStack <- A.unsafeLinearGrow vStrong' (Sz lenImg)
-  -- Burn in new edges.
-  vImg <- A.new sz
-  burn vImg vStack (unSz (size vStrong))
-  unsafeFreeze (getComp img) vImg
-  where
-    !sz = A.size img
-    !lenImg = totalElem sz
-    burn ::
-         MArray RealWorld S Ix2 (Pixel Y' Word8)
-      -> MArray RealWorld S Ix1 Ix1
-      -> Int
-      -> IO ()
-    burn !vImg !vStack = go
-      where
-        push !ix !t =
-          case indexM img ix of
-            Nothing -> pure t
-            Just xSrc -> do
-              xDst <- unsafeRead vImg ix
-              if xDst == edgeNone && xSrc == edgeWeak
-                -- If this ix is weak in the source then set it to strong in the result
-                -- and push the ix onto the stack.
-                then do
-                  unsafeWrite vStack t $ toLinearIndex sz ix
-                  return (t + 1)
-                else return t
-        {-# INLINE push #-}
-        go !top
-          | top == 0 = return ()
-          | otherwise = do
-            let !top' = top - 1
-            ix@(y :. x) <- fromLinearIndex sz <$> readM vStack top'
-            unsafeWrite vImg ix (edgeStrong)
-            push (y - 1 :. x - 1) top' >>= push (y - 1 :. x) >>=
-              push (y - 1 :. x + 1) >>=
-              push (y :. x - 1) >>=
-              push (y :. x + 1) >>=
-              push (y + 1 :. x - 1) >>=
-              push (y + 1 :. x) >>=
-              push (y + 1 :. x + 1) >>=
-              go
-{-# INLINE wildfire #-}
-
-
-wildfire' ::
-     Image S Y' Word8 -- ^ Image with strong and weak edges set.
-  -> IO (Image S Y' Word8)
-wildfire' img = do
-  -- Stack of image indices we still need to consider.
-  vStrong <- selectStrong img
   -- Stack of image indices we still need to consider.
   vStack <- A.unsafeNew (Sz lenImg)
   A.unsafeArrayLinearCopy vStrong 0 vStack 0 (size vStrong)
@@ -379,23 +223,24 @@ wildfire' img = do
       -> IO ()
     burn !vImg !vStack = go
       where
-        push !ix !t =
+        push !ix !top =
           case indexM img ix of
-            Nothing -> pure t
+            Nothing -> pure top
             Just xSrc -> do
               xDst <- unsafeRead vImg ix
               if xDst == edgeNone && xSrc == edgeWeak
                 -- If this ix is weak in the source then set it to strong in the result
                 -- and push the ix onto the stack.
-                then (t + 1) <$ unsafeWrite vStack t (toLinearIndex sz ix)
-                else pure t
+                then (top + 1) <$ unsafeWrite vStack top (toLinearIndex sz ix)
+                else pure top
         {-# INLINE push #-}
         go !top
           | top == 0 = return ()
           | otherwise = do
             let !top' = top - 1
-            ix@(y :. x) <- fromLinearIndex sz <$> readM vStack top'
-            unsafeWrite vImg ix edgeStrong
+            i <- unsafeLinearRead vStack top'
+            let (y :. x) = fromLinearIndex sz i
+            unsafeLinearWrite vImg i edgeStrong
             push   (y - 1 :. x - 1) top' >>=
               push (y - 1 :. x    ) >>=
               push (y - 1 :. x + 1) >>=
@@ -405,7 +250,4 @@ wildfire' img = do
               push (y + 1 :. x    ) >>=
               push (y + 1 :. x + 1) >>=
               go
-{-# INLINE wildfire' #-}
-
-
---------------------------------------------
+{-# INLINE wildfire #-}

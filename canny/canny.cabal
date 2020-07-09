@@ -18,8 +18,9 @@ library
   hs-source-dirs:      src
   exposed-modules:     Canny
                      , Canny.Accelerate
-                     , Canny.Repa
+                     , Canny.Friday
                      , Canny.Massiv
+                     , Canny.Repa
                      , Canny.Yarr
 
   build-depends:       Color
@@ -39,6 +40,7 @@ library
                      , JuicyPixels
                      , yarr
                      , storable-tuple
+                     , friday
 
   default-language:    Haskell2010
   ghc-options:         -Wall
@@ -61,6 +63,7 @@ benchmark bench-canny
                      , massiv
                      , massiv-io
                      , canny
+                     , friday
   default-language:    Haskell2010
 
 benchmark bench-canny-steps

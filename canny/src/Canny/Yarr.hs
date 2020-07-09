@@ -60,7 +60,7 @@ runCanny threshLow threshHigh image = do
 process :: Word8 -> Word8 -> FImage (VecList N3 Float) -> FImage Word8 -> IO ()
 process threshLow threshHigh image resultEdges = do
 
-    let luminosity r g b = (0.21 :: Float) * r + 0.71 * g + 0.07 * b
+    let luminosity r g b = (0.299 :: Float) * r + 0.587 * g + 0.114 * b
         delayedLum = zipElems luminosity image
 
     greyImage <-

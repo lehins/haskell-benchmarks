@@ -80,13 +80,17 @@ extra-deps:
 - Color-0.2.0@sha256:94c43c4d8f943ba0642ee58a9b8a665b01a3ac2893c40a16ffdabaacb956c58f,8159
 - JuicyPixels-3.3.5@sha256:5c67dc066d67f5045221a8202f701f4c77eab8220f44414c00fadcdc3e4f872b,3911
 
+- friday-0.2.3.1@sha256:6af55a11c3b56aeb6726fec1c407f56b03875c6ceebbe3a3c89c57413ef7c2c7,4984
+- containers-0.5.11.0@sha256:28ad7337057442f75bc689315ab4ec7bdf5e6b2c39668f306672cecd82c02798,16685
+- ratio-int-0.1.2@sha256:304c6558e75eff2c7799558651091811d1d92e611594af8ac51edd10dd6c5cd8,858
+- binary-0.8.6.0
+- text-1.2.4.0@sha256:8c24450feb8e3bbb7ea3e17af24ef57e85db077c4bf53e5bcc345b283d1b1d5b,10081
 
 - accelerate-1.2.0.1
 - accelerate-io-1.2.0.0
 - accelerate-llvm-1.2.0.1
 - accelerate-llvm-native-1.2.0.1
 - accelerate-examples-1.2.0.1
-
 - colour-accelerate-0.3.0.0@sha256:968922b620c5ffc4365df2b33e7ff273e6ae77611a7be3db43d8a4d11b4f7fd5,1866
 
 flags:
