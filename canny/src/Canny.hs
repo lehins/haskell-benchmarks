@@ -9,6 +9,7 @@ import qualified Canny.Repa as R
 import qualified Canny.Massiv as M
 import qualified Canny.Yarr as Y
 import qualified Codec.Picture as JP
+import qualified Codec.Picture.Types as JP
 import Control.Monad
 import qualified Data.Array.Accelerate as A
 import qualified Data.Array.Accelerate.Examples.Internal as A
@@ -71,6 +72,18 @@ applyFridayCanny low high =
     (pure . F.fromJuicyPixels)
     (pure . F.toJuicyPixels)
     (pure . F.runCanny (round low) (round high))
+
+
+applyAccelerateCanny ::
+     Float
+  -> Float
+  -> Image S (SRGB 'NonLinear) Word8
+  -> IO (Image S (Y D65) Word8)
+applyAccelerateCanny low high =
+  applyCanny
+    (pure . A.fromJuicyPixels . JP.promoteImage)
+    (pure . R.toJuicyPixels)
+    (A.runCanny A.CPU low high)
 
 
 
