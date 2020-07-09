@@ -8,6 +8,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# OPTIONS -fno-warn-orphans #-}
 module Canny.Yarr where
+-- Copy from https://github.com/leventov/yarr/blob/4167330ec947c84c48ed5d105bc3aac83fa9db8c/tests/canny.hs
+
 import Control.Monad
 import Prelude as P
 
