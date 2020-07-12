@@ -7,6 +7,7 @@ import Control.Monad
 import Criterion.Main
 import qualified Data.Array.Accelerate as A
 import qualified Data.Array.Accelerate.Examples.Internal as A
+import qualified Data.Array.Accelerate.LLVM.Native as CPU
 import qualified Data.Array.Repa.Repr.Accelerate as A
 import Data.Massiv.Array as M
 import Data.Massiv.Array.IO as M
@@ -27,18 +28,18 @@ main = do
   let gradMass = M.toGreyScale imgRGB >>= M.blur >>= M.gradientMagOrient low
       gradRepa = R.toGreyScale (toRepaImageRGB imgRGB) >>= R.blur >>= R.grad low
       gradAcc =
-        A.run A.CPU . A.gradientMagDir (A.lift low) . A.use . A.blur A.CPU $
+        CPU.runN . A.gradientMagDir (A.lift low) . A.use . A.blur $
         toAccelerateImageY imgRGB
       supMass = gradMass >>= M.suppress low high
       supRepa = gradRepa >>= R.suppress low high
       supAcc =
-        A.run A.CPU . A.nonMaximumSuppression (A.lift low) (A.lift high) . A.use $
+        CPU.runN . A.nonMaximumSuppression (A.lift low) (A.lift high) . A.use $
         gradAcc
       strongMass = supMass >>= \sup -> (,) sup <$> M.selectStrong sup
       strongRepa = supRepa >>= \sup -> (,) sup <$> R.selectStrong sup
       strongAcc =
         ( A.toRepa supAcc
-        , A.toRepa . A.run A.CPU . A.selectStrong . A.use $ supAcc)
+        , A.toRepa . CPU.runN . A.selectStrong . A.use $ supAcc)
   defaultMain
     [ bgroup
         "Grayscale"
@@ -46,7 +47,7 @@ main = do
         , env (pure (toRepaImageRGB imgRGB)) $ \img ->
             bench "repa" $ nfIO (R.toGreyScale img)
         , env (pure (toAccelerateImageRGB imgRGB)) $ \img ->
-            bench "accelerate" $ nf (A.run A.CPU . A.toGreyscale . A.use) img
+            bench "accelerate" $ nf (CPU.runN . A.toGreyscale . A.use) img
         ]
     , bgroup
         "Blur"
@@ -55,7 +56,7 @@ main = do
         , env (R.toGreyScale $ toRepaImageRGB imgRGB) $ \img ->
             bench "repa" $ nfIO (R.blur img)
         , env (pure (toAccelerateImageY imgRGB)) $ \img ->
-            bench "accelerate" $ nf (A.blur A.CPU) img
+            bench "accelerate" $ nf A.blur img
         ]
     , bgroup
         "Gradient"
@@ -63,9 +64,9 @@ main = do
             bench "massiv" $ nfIO (M.gradientMagOrient low img)
         , env (R.toGreyScale (toRepaImageRGB imgRGB) >>= R.blur) $ \img ->
             bench "repa" $ nfIO (R.grad low img)
-        , env (pure (A.blur A.CPU $ toAccelerateImageY imgRGB)) $ \img ->
+        , env (pure (A.blur $ toAccelerateImageY imgRGB)) $ \img ->
             bench "accelerate" $
-            nf (A.run A.CPU . A.gradientMagDir (A.lift low) . A.use) img
+            nf (CPU.runN . A.gradientMagDir (A.lift low) . A.use) img
         ]
     , bgroup
         "Suppress"
@@ -74,7 +75,7 @@ main = do
         , env (pure gradAcc) $ \img ->
             bench "accelerate" $
             nf
-              (A.run A.CPU .
+              (CPU.runN .
                A.nonMaximumSuppression (A.lift low) (A.lift high) . A.use)
               img
         ]
@@ -83,7 +84,7 @@ main = do
         [ env supMass $ \img -> bench "massiv" $ nfIO (M.selectStrong img)
         , env supRepa $ \img -> bench "repa" $ nfIO (R.selectStrong img)
         , env (pure supAcc) $ \img ->
-            bench "accelerate" $ nf (A.run A.CPU . A.selectStrong . A.use) img
+            bench "accelerate" $ nf (CPU.runN . A.selectStrong . A.use) img
         ]
     , bgroup
         "Wildfire"

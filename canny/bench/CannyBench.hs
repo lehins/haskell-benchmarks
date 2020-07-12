@@ -4,7 +4,6 @@
 module Main where
 
 import Criterion.Main
-import qualified Data.Array.Accelerate.Examples.Internal as A
 import Data.Massiv.Array as M
 import Data.Massiv.Array.IO as M
 import Prelude as P
@@ -29,7 +28,7 @@ mkGroup imgRGB =
   , env (pure (toRepaImageRGB imgRGB)) $ \img ->
       bench "repa" $ nfIO (R.runCanny low high img)
   , env (pure (toAccelerateImageRGB imgRGB)) $ \img ->
-      bench "accelerate" $ nfIO (A.runCanny A.CPU low high img)
+      bench "accelerate" $ nfIO (A.runCanny low high img)
   , env (toYarrImageRGB imgRGB) $ \img ->
       bench "yarr" $ nfIO (Y.runCanny (round low) (round high) img)
   , env (pure $ toFridayImageRGB imgRGB) $ \img ->
