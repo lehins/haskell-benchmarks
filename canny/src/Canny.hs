@@ -12,6 +12,7 @@ import qualified Codec.Picture as JP
 import qualified Codec.Picture.Types as JP
 import Control.Monad
 import qualified Data.Array.Accelerate as A
+import qualified Data.Array.Accelerate.LLVM.Native as CPU
 import qualified Data.Array.Accelerate.Examples.Internal as A
 import qualified Vision.Image as F
 import Data.Massiv.Array as M
@@ -83,7 +84,7 @@ applyAccelerateCanny low high =
   applyCanny
     (pure . A.fromJuicyPixels . JP.promoteImage)
     (pure . R.toJuicyPixels)
-    (A.runCanny A.CPU low high)
+    (A.runCanny low high)
 
 
 
@@ -136,7 +137,7 @@ toRepaImageY :: Image S (SRGB 'NonLinear) Word8 -> IO (R.Image Float)
 toRepaImageY = R.toGreyScale . toRepaImageRGB
 
 toAccelerateImageY :: Image S (SRGB 'NonLinear) Word8 -> A.Image Float
-toAccelerateImageY = A.run A.CPU . A.toGreyscale . A.use . toAccelerateImageRGB
+toAccelerateImageY = CPU.runN . A.toGreyscale . A.use . toAccelerateImageRGB
 
 
 toFridayImageRGB :: Image S (SRGB 'NonLinear) Word8 -> F.RGB

@@ -37,7 +37,7 @@ import Data.Array.Accelerate                            as A
 import Data.Array.Accelerate.IO.Codec.BMP               as A
 import Data.Array.Accelerate.Data.Colour.RGB
 import Data.Array.Accelerate.IO.Data.Vector.Storable    as A
-import qualified Data.Array.Accelerate.Examples.Internal as A
+import qualified Data.Array.Accelerate.LLVM.Native      as CPU
 import Data.Array.Repa.Repr.Accelerate                  as A
 import Data.Array.Repa.Repr.Unboxed                     ( U )
 import qualified Data.Array.Repa                        as R
@@ -54,10 +54,10 @@ fromJuicyPixelsY (JP.Image w h vec) = fromVectors (Z :. h :. w) vec
 
 
 runCanny ::
-     A.Backend -> Float -> Float -> Image RGBA32 -> IO (R.Array U R.DIM2 Word8)
-runCanny backend threshLow threshHigh img = do
+     Float -> Float -> Image RGBA32 -> IO (R.Array U R.DIM2 Word8)
+runCanny threshLow threshHigh img = do
   let (image, strong) =
-        A.run backend $ A.lift (canny threshLow threshHigh (use img))
+        CPU.run $ A.lift (canny threshLow threshHigh (use img))
   wildfire (A.toRepa image) (A.toRepa strong)
 
 
@@ -74,8 +74,8 @@ canny (constant -> low) (constant -> high)
   where
     stage1 x = (x, selectStrong x)
 
-blur :: A.Backend -> Image Float -> Image Float
-blur backend img = A.run backend $ gaussianY $ gaussianX $ use img
+blur :: Image Float -> Image Float
+blur img = CPU.runN $ gaussianY $ gaussianX $ use img
 {-# INLINE blur #-}
 
 

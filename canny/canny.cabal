@@ -75,6 +75,7 @@ benchmark bench-canny-steps
   build-depends:       base
                      , accelerate
                      , accelerate-io
+                     , accelerate-llvm-native
                      , accelerate-examples
                      , criterion
                      , deepseq
