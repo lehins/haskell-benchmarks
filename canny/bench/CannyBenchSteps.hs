@@ -1,6 +1,7 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TemplateHaskell #-}
 module Main where
 
 import Control.Monad
@@ -84,7 +85,7 @@ main = do
         [ env supMass $ \img -> bench "massiv" $ nfIO (M.selectStrong img)
         , env supRepa $ \img -> bench "repa" $ nfIO (R.selectStrong img)
         , env (pure supAcc) $ \img ->
-            bench "accelerate" $ nf (CPU.runN . A.selectStrong . A.use) img
+            bench "accelerate" $ nf $(CPU.runQ A.selectStrong) img
         ]
     , bgroup
         "Wildfire"
