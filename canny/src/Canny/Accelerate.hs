@@ -55,9 +55,17 @@ fromJuicyPixelsY (JP.Image w h vec) = fromVectors (Z :. h :. w) vec
 
 runCanny ::
      Float -> Float -> Image RGBA32 -> IO (R.Array U R.DIM2 Word8)
-runCanny threshLow threshHigh img = do
-  let (image, strong) =
-        CPU.run $ A.lift (canny threshLow threshHigh (use img))
+runCanny (constant -> low) (constant -> high) img = do
+  let image = CPU.runN
+              ( nonMaximumSuppression low high
+              . gradientMagDir low
+              . gaussianY
+              . gaussianX
+              . toGreyscale
+              ) img
+      strong = CPU.runN selectStrong image
+  -- let (image, strong) =
+  --       CPU.run $ canny threshLow threshHigh (use img)
   wildfire (A.toRepa image) (A.toRepa strong)
 
 
@@ -77,11 +85,6 @@ canny (constant -> low) (constant -> high)
 blur :: Image Float -> Image Float
 blur img = CPU.runN $ gaussianY $ gaussianX $ use img
 {-# INLINE blur #-}
-
-
--- grad :: A.Backend -> Image Float -> IO (Image Float)
--- grad backend = gradientX >=> gradientY >=> A.run backend
--- {-# INLINE grad #-}
 
 
 -- Accelerate component --------------------------------------------------------
