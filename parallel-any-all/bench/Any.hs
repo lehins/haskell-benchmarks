@@ -7,7 +7,7 @@ import Criterion.Main
 import Control.Concurrent
 import Control.Scheduler
 import Control.Monad
---import Data.Functor.Identity
+import Data.Functor.Identity
 import Data.Foldable as F
 import Data.Massiv.Array as A
 import Data.Massiv.Array.Manifest.Vector as A
@@ -42,13 +42,23 @@ loopMaybeM !startAt condition increment !initAcc f = go startAt initAcc
 -- {-# INLINE loopMaybeM #-}
 
 
-loopShortM :: Monad m => Int -> (Int -> a -> Bool) -> (Int -> Int) -> a -> (Int -> a -> m a) -> m a
+loopShortM :: Monad m => Int -> (Int -> a -> m Bool) -> (Int -> Int) -> a -> (Int -> a -> m a) -> m a
 loopShortM !startAt condition increment !initAcc f = go startAt initAcc
   where
-    go !step !acc
-      | condition step acc = f step acc >>= go (increment step)
-      | otherwise = return acc
+    go !step !acc = do
+      shouldContinue <- condition step acc
+      if shouldContinue
+        then f step acc >>= go (increment step)
+        else return acc
 {-# INLINE loopShortM #-}
+
+-- loopShortM :: Monad m => Int -> (Int -> a -> Bool) -> (Int -> Int) -> a -> (Int -> a -> m a) -> m a
+-- loopShortM !startAt condition increment !initAcc f = go startAt initAcc
+--   where
+--     go !step !acc
+--       | condition step acc = f step acc >>= go (increment step)
+--       | otherwise = return acc
+-- {-# INLINE loopShortM #-}
 
 
 
@@ -93,46 +103,33 @@ loopShortM !startAt condition increment !initAcc f = go startAt initAcc
 --   loopShortM k0 (`cond` k1) (+ inc) cp cpAction acc $ \ !i !acc0 -> f i (fromLinearIndex sz i) acc0
 -- {-# INLINE iterShortLinearM #-}
 
-
-foldlList :: (a -> b -> a) -> a -> [b] -> a
-foldlList f = go
-  where
-    go !acc [] = acc
-    go !acc (x:xs) = go (f acc x) xs
-
-foldrList :: (b -> a -> a) -> a -> [b] -> a
-foldrList f = go
-  where
-    go acc [] = acc
-    go acc (x:xs) = f x (go acc xs)
-{-# INLINE foldrList #-}
-
-foldlArray :: Source r ix b => (a -> b -> a) -> a -> Array r ix b -> a
-foldlArray f initAcc arr = go 0 initAcc
-  where
-    k = elemsCount arr
-    go i !acc
-      | i < k = go (i + 1) (f acc (unsafeLinearIndex arr i))
-      | otherwise = acc
-
-foldrArray :: Source r ix b => (b -> a -> a) -> a -> Array r ix b -> a
-foldrArray f initAcc arr = go 0 initAcc
-  where
-    !k = elemsCount arr
-    go !i !acc
-      | i < k = f (unsafeLinearIndex arr i) (go (i + 1) acc)
-      | otherwise = acc
-{-# INLINE foldrArray #-}
-
 anyS :: Source r ix a => (a -> Bool) -> Array r ix a -> Bool
---anyS f = runIdentity . foldlShort not (\acc e -> acc || f e) False -- <== almost as fast
-anyS f arr = go 0
+anyS f = foldlShort not (\acc e -> acc || f e) False
+{-# INLINE anyS #-}
+
+-- >>> anySi even arrayLate
+
+foldlShort ::
+     Source r ix e => (a -> Bool) -> (a -> e -> a) -> a -> Array r ix e -> a
+foldlShort g f initAcc arr =
+  runIdentity $ loopShortM 0 (\i a -> pure (g a && i < k)) (+ 1) initAcc $ \ !i !acc ->
+    pure $! f acc (unsafeLinearIndex arr i)
   where
     !k = elemsCount arr
-    go i
-      | i < k = f (unsafeLinearIndex arr i) || go (i + 1)
-      | otherwise = False
-{-# INLINE anyS #-}
+{-# INLINE foldlShort #-}
+
+
+-- foldlShort ::
+--      Source r ix e => (a -> Bool) -> (a -> e -> a) -> a -> Array r ix e -> a
+-- foldlShort g f initAcc arr = runIdentity $
+--   loopMaybeM 0 (< k) (+ 1) initAcc $ \ i !acc ->
+--     pure $
+--     if g acc
+--       then Just $ f acc (unsafeLinearIndex arr i)
+--       else Nothing
+--   where
+--     !k = elemsCount arr
+-- {-# INLINE foldlShort #-}
 
 -- anyP :: (Source r Ix1 e, Source r ix e) => (e -> Bool) -> Array r ix e -> IO Bool
 -- anyP f = splitReduce (\s arr -> pure $ anyS f arr) (\r a -> pure (a || r)) False
@@ -145,36 +142,15 @@ ifoldlShort ::
   -> Array r ix e
   -> m a
 ifoldlShort g f initAcc arr =
-  loopMaybeM
-    0
-    (< k)
-    (+ 1)
-    initAcc
-    (\i acc ->
-       if g acc
-         then Just <$> f acc (fromLinearIndex sz i) (unsafeLinearIndex arr i)
-         else pure Nothing)
+  loopMaybeM 0 (< k) (+ 1) initAcc $ \i acc ->
+    if g acc
+      then Just <$> f acc (fromLinearIndex sz i) (unsafeLinearIndex arr i)
+      else pure Nothing
   where
     sz = size arr
     k = totalElem sz
 {-# INLINE ifoldlShort #-}
 
-foldlShort ::
-     Monad m => Source r ix e => (a -> Bool) -> (a -> e -> a) -> a -> Array r ix e -> m a
-foldlShort g f initAcc arr =
-  loopMaybeM
-    0
-    (< k)
-    (+ 1)
-    initAcc
-    (\i acc ->
-       pure $
-       if g acc
-         then Just $ f acc (unsafeLinearIndex arr i)
-         else Nothing)
-  where
-    k = elemsCount arr
-{-# INLINE foldlShort #-}
 
 anyP :: Source r ix e => (e -> Bool) -> Array r ix e -> IO Bool
 anyP f arr = do
@@ -186,10 +162,10 @@ anyP f arr = do
         loopM_ 0 (< slackStart) (+ chunkLength) $ \ !start ->
           scheduleWork scheduler $ do
             res <-
-              loopShortM start (\i a -> not a && i < start + chunkLength) (+ 1) False $ \ !i acc ->
+              loopShortM start (\i a -> pure (not a && i < start + chunkLength)) (+ 1) False $ \ !i acc ->
                 pure (acc || f (unsafeLinearIndex arr i))
             if res
-              then void (terminateWith scheduler True) >> pure True
+              then terminateWith scheduler True
               else pure res
             -- loopM_ start (< start + chunkLength) (+ 1) $ \ !i ->
             --   when (f (unsafeLinearIndex arr i)) $ void $ terminateWith scheduler True
@@ -203,6 +179,8 @@ anyP f arr = do
 {-# INLINE anyP #-}
 
 
+arrayNone :: Array P Ix1 Int
+arrayNone = computeAs P $ A.enumFromStepN Seq 1 2 8000000
 
 -- arrayLate :: Array P Ix1 Int
 -- arrayLate =
@@ -225,54 +203,39 @@ arrayEarly =
   concat' 1 [A.singleton 2, A.enumFromStepN Seq 1 2 7000000, A.enumFromStepN Seq 1 2 999999]
 
 
+anyBench :: String -> Vector P Int -> Benchmark
+anyBench name arr =
+  bgroup
+    name
+    [ env (pure (A.toVector arr, A.toList arr)) $ \ ~(vecVP, ls) ->
+        bgroup
+          "common"
+          [ -- bench "list" $ whnfIO (pure $ Prelude.any even ls)
+          -- ,
+            bench "vector" $ whnfIO (pure $ VP.any even vecVP)
+          ]
+    , env (pure arr) $ \vec ->
+        bgroup
+          "Massiv"
+          [ bench "anyS" $ whnfIO (pure $ anyS even vec)
+          , bench "anyP" $ whnfIO (anyP even (setComp Par vec))
+         -- , bench "anyS'" $ whnfIO (anyP' even (setComp Seq vec)) -- TOO SLOW
+          , bench "anyP'" $ whnfIO (anyP' even (setComp Par vec))
+          -- , bench "massiv (sany)" $ whnfIO (pure $ A.any even (setComp Seq vec))
+          -- , bench "massiv (any Seq)" $ whnfIO (pure $ A.any even (setComp Seq vec))
+          -- , bench "massiv (any Par)" $ whnfIO (pure $ A.any even (setComp Par vec))
+          ]
+    ]
+
 main :: IO ()
 main =
   defaultMain
-    [ bgroup
-        "any"
-        [ env (pure (arrayLate, A.toVector arrayLate, A.toList arrayLate)) $ \ ~(vec, vecVP, ls) ->
-            bgroup
-              "Late"
-              [ bench "list" $ whnfIO (pure $ Prelude.any even ls)
-              , bench "vector" $ whnfIO (pure $ VP.any even vecVP)
-              , bench "anyS" $ whnfIO (pure $ anyS even vec)
-              , bench "anyP" $ whnfIO (anyP even (setComp Par vec))
-              , bench "anyS'" $ whnfIO (anyP' even (setComp Seq vec))
-              , bench "anyP'" $ whnfIO (anyP' even (setComp Par vec))
-              , bench "massiv (Seq)" $ whnfIO (pure $ A.any even (setComp Seq vec))
-              , bench "massiv (Par)" $ whnfIO (pure $ A.any even (setComp Par vec))
-              ]
-        , env
-            (pure
-               ( arrayLateShort
-               , A.toVector arrayLateShort
-               , A.toList arrayLateShort)) $ \ ~(vec, vecVP, ls) ->
-            bgroup
-              "LateShort"
-              [ bench "list" $ whnfIO (pure $ Prelude.any even ls)
-              , bench "vector" $ whnfIO (pure $ VP.any even vecVP)
-              , bench "anyS" $ whnfIO (pure $ anyS even vec)
-              , bench "anyP" $ whnfIO (anyP even (setComp Par vec))
-              , bench "anyS'" $ whnfIO (anyP' even (setComp Seq vec))
-              , bench "anyP'" $ whnfIO (anyP' even (setComp Par vec))
-              , bench "massiv (Seq)" $ whnfIO (pure $ A.any even (setComp Seq vec))
-              , bench "massiv (Par)" $ whnfIO (pure $ A.any even (setComp Par vec))
-              ]
-        , env (pure (arrayEarly, A.toVector arrayEarly, A.toList arrayEarly)) $ \ ~(vec, vecVP, ls) ->
-            bgroup
-              "Early"
-              [ bench "list" $ whnfIO (pure $ Prelude.any even ls)
-              , bench "vector" $ whnfIO (pure $ VP.any even vecVP)
-              , bench "anyS" $ whnfIO (pure $ anyS even vec)
-              , bench "anyP" $ whnfIO (anyP even (setComp Par vec))
-              , bench "anyS'" $ whnfIO (anyP' even (setComp Seq vec))
-              , bench "anyP'" $ whnfIO (anyP' even (setComp Par vec))
-              , bench "massiv (Seq)" $ whnfIO (pure $ A.any even (setComp Seq vec))
-              , bench "massiv (Par)" $ whnfIO (pure $ A.any even (setComp Par vec))
-              ]
-        , waldoBenchmark 0 100
-        , waldoBenchmark 531186389 100
-        ]
+    [ anyBench "Late" arrayLate
+    -- , anyBench "LateShort" arrayLateShort
+    -- , anyBench "Early" arrayEarly
+        -- -- , waldoBenchmark 0 100
+        -- -- , waldoBenchmark 531186389 100
+        -- ]
     ]
 
 waldoBenchmark :: Int32 -> Int32 -> Benchmark
@@ -340,7 +303,7 @@ anyP' f =
   ifoldlScheduler
     not
     (\scheduler _ _ e ->
-       if f e then terminateWith scheduler True
+       if f e then pure True --terminateWith scheduler True
        else pure False)
     False
     (\acc a -> pure (acc || a))
@@ -373,23 +336,25 @@ ifoldlScheduler fcont f !iAcc g !tAcc !arr = do
       !totalLength = totalElem sz
       !comp = getComp arr
   results <-
-    withScheduler comp $ \scheduler ->
+    withScheduler comp $ \scheduler -> do
+      batchId <- getCurrentBatchId scheduler
       splitLinearly (numWorkers scheduler) totalLength $ \chunkLength slackStart -> do
         let iterShort len start =
               scheduleWork scheduler $
               loopMaybeM start (< start + len) (+ 1) iAcc $ \i acc ->
                 if fcont acc
                   then do
-                    done <- isTerminated scheduler
+                    done <- hasBatchFinished scheduler batchId
                     if done
                       then do
-                        liftIO yield
+                        --liftIO yield
                         pure Nothing
                       else do
                         let e = unsafeLinearIndex arr i
                         res <- f scheduler acc (fromLinearIndex sz i) e
                         pure $ Just res
-                  else pure Nothing
+                  else do
+                  Nothing <$ cancelBatch scheduler acc
         loopM_ 0 (< slackStart) (+ chunkLength) (iterShort chunkLength)
         when (slackStart < totalLength) $
           iterShort (totalLength - slackStart) slackStart
@@ -652,3 +617,45 @@ cpLoopMaybeM !startAt condition increment !initAcc initCheckPoint f =
 --                  iterShort (totalLength - slackStart) slackStart
 --   F.foldlM g tAcc results
 -- {-# INLINE ifoldlScheduler #-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+foldlList :: (a -> b -> a) -> a -> [b] -> a
+foldlList f = go
+  where
+    go !acc [] = acc
+    go !acc (x:xs) = go (f acc x) xs
+
+foldrList :: (b -> a -> a) -> a -> [b] -> a
+foldrList f = go
+  where
+    go acc [] = acc
+    go acc (x:xs) = f x (go acc xs)
+{-# INLINE foldrList #-}
+
+foldlArray :: Source r ix b => (a -> b -> a) -> a -> Array r ix b -> a
+foldlArray f initAcc arr = go 0 initAcc
+  where
+    k = elemsCount arr
+    go i !acc
+      | i < k = go (i + 1) (f acc (unsafeLinearIndex arr i))
+      | otherwise = acc
+
+foldrArray :: Source r ix b => (b -> a -> a) -> a -> Array r ix b -> a
+foldrArray f initAcc arr = go 0 initAcc
+  where
+    !k = elemsCount arr
+    go !i !acc
+      | i < k = f (unsafeLinearIndex arr i) (go (i + 1) acc)
+      | otherwise = acc
+{-# INLINE foldrArray #-}
