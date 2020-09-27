@@ -20,6 +20,7 @@ library
 
   other-modules:
   build-depends:       base >= 4.8 && < 5
+                     , bytestring
                      , massiv
                      , scheduler
                      , random
@@ -36,9 +37,11 @@ benchmark random
   hs-source-dirs: bench
   ghc-options: -Wall -O2 -threaded -rtsopts -with-rtsopts=-N
   build-depends: base
+               , bytestring
                , criterion
                , random-benchmarks
                , massiv >=0.3.4
+               , memory
                , scheduler
 
                , random
@@ -51,6 +54,7 @@ benchmark random
                , Xorshift128Plus
                , pcgen
                , splitmix
+               , cryptonite
 
                , mwc-random
                , sfmt

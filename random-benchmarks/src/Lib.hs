@@ -2,15 +2,21 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE ScopedTypeVariables #-}
-module Lib where
+module Lib
+  ( module Lib
+  ) where
 
 import Control.Monad
 import Control.Scheduler
 import Data.Massiv.Array as A
 import Data.Massiv.Array.Unsafe as A
+import Data.ByteString (ByteString)
+import Data.ByteString.Internal
 import Prelude as P
 import System.Random as System
 import Data.Word
+import Foreign.Storable
+import Foreign.ForeignPtr
 
 computeIO :: (Mutable r ix e, Load r' ix e) => Array r' ix e -> IO (Array r ix e)
 computeIO arr = loadArray arr >>= unsafeFreeze (getComp arr)
@@ -45,3 +51,13 @@ randomArrayDouble ::
      WorkerStates g -> Sz1 -> (g -> IO Double) -> IO (Array P Ix1 Double)
 randomArrayDouble = randomArrayWS
 {-# INLINE randomArrayDouble #-}
+
+
+unsafeCastFromByteString :: forall e . Storable e => Comp -> ByteString -> Array S Ix1 e
+unsafeCastFromByteString comp (PS fp offset len) =
+  unsafeArrayFromForeignPtr
+    comp
+    (castForeignPtr fp)
+    offset
+    (Sz (len `div` sizeOf (undefined :: e)))
+{-# INLINE unsafeCastFromByteString #-}
