@@ -28,6 +28,10 @@ library
                      , accelerate-examples
                      , accelerate-io
                      , accelerate-llvm-native
+                     , accelerate-io-bmp
+                     , accelerate-io-bytestring
+                     , accelerate-io-vector
+                     , accelerate-io-repa
                      , base            >= 4.8 && < 5
                      , colour-accelerate
                      , deepseq
@@ -57,6 +61,7 @@ benchmark bench-canny
   build-depends:       base
                      , accelerate
                      , accelerate-io
+                     , accelerate-io-repa
                      , accelerate-examples
                      , criterion
                      , deepseq
@@ -75,6 +80,7 @@ benchmark bench-canny-steps
   build-depends:       base
                      , accelerate
                      , accelerate-io
+                     , accelerate-io-repa
                      , accelerate-llvm-native
                      , accelerate-examples
                      , criterion

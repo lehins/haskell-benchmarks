@@ -53,6 +53,18 @@ fromJuicyPixelsY :: JP.Image JP.PixelF -> Image Float
 fromJuicyPixelsY (JP.Image w h vec) = fromVectors (Z :. h :. w) vec
 
 
+blur :: Image Float -> Image Float
+blur img = CPU.runN $ gaussianY $ gaussianX $ use img
+{-# INLINE blur #-}
+
+
+instance Elt e => NFData (R.Array A R.DIM1 e) where
+  rnf = (`R.deepSeqArray` ())
+instance Elt e => NFData (R.Array A R.DIM2 e) where
+  rnf = (`R.deepSeqArray` ())
+
+
+
 runCanny ::
      Float -> Float -> Image RGBA32 -> IO (R.Array U R.DIM2 Word8)
 runCanny (constant -> low) (constant -> high) img = do
@@ -69,6 +81,7 @@ runCanny (constant -> low) (constant -> high) img = do
   wildfire (A.toRepa image) (A.toRepa strong)
 
 
+
 -- Canny algorithm -------------------------------------------------------------
 
 canny :: Float -> Float -> Acc (Image RGBA32) -> (Acc (Image Float), Acc (Vector Int))
@@ -82,10 +95,6 @@ canny (constant -> low) (constant -> high)
   where
     stage1 x = (x, selectStrong x)
 
-blur :: Image Float -> Image Float
-blur img = CPU.runN $ gaussianY $ gaussianX $ use img
-{-# INLINE blur #-}
-
 
 -- Accelerate component --------------------------------------------------------
 
@@ -97,13 +106,6 @@ type Stencil1x5 a       = (Stencil3 a, Stencil3 a, Stencil3 a, Stencil3 a, Stenc
 -- Classification of the output pixel
 data Orient     = Undef | PosD | Vert | NegD | Horiz
 data Edge       = None  | Weak | Strong
-
-instance Elt e => NFData (R.Array A R.DIM1 e) where
-  rnf = (`R.deepSeqArray` ())
-instance Elt e => NFData (R.Array A R.DIM2 e) where
-  rnf = (`R.deepSeqArray` ())
-
-
 
 orient :: Orient -> Int
 orient Undef    = 0
@@ -266,7 +268,7 @@ selectStrong img =
       indices           = enumFromN (index1 $ size img) 0
       zeros             = fill (index1 $ the len) 0
   in
-  permute const zeros (\ix -> strong!ix == 0 ? (ignore, index1 $ targetIdx!ix)) indices
+  permute const zeros (\ix -> strong!ix == 0 ? (Nothing_, Just_ (I1 (targetIdx!ix)))) indices
 
 
 -- Repa component --------------------------------------------------------------

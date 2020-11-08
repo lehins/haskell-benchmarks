@@ -13,11 +13,9 @@ import qualified Codec.Picture.Types as JP
 import Control.Monad
 import qualified Data.Array.Accelerate as A
 import qualified Data.Array.Accelerate.LLVM.Native as CPU
-import qualified Data.Array.Accelerate.Examples.Internal as A
 import qualified Vision.Image as F
 import Data.Massiv.Array as M
 import Data.Massiv.Array.IO as M
-import qualified Graphics.Pixel as CM
 import Prelude as P
 
 applyCanny ::
@@ -87,14 +85,6 @@ applyAccelerateCanny low high =
     (A.runCanny low high)
 
 
-
--- toImageY ::
---      Array S Ix2 (Pixel (SRGB 'NonLinear) Word8)
---   -> Array S Ix2 (Pixel Y Float)
--- toImageY =
---   toImageBaseModel .
---   M.compute .
---   M.map ((\(PixelY' x) -> PixelY x :: Pixel (Y D65) Float) . rgbPixelLuma)
 
 toImageY' ::
      Array S Ix2 (Pixel (Y' SRGB) Word8)
