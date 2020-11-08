@@ -30,13 +30,13 @@ orientVert      = 128   :: Word8
 orientNegDiag   = 192   :: Word8
 orientHoriz     = 255   :: Word8
 
-edgeNone, edgeWeak, edgeStrong :: Pixel Y' Word8
-edgeNone   = 0     :: Pixel Y' Word8
-edgeWeak   = 128   :: Pixel Y' Word8
-edgeStrong = 255   :: Pixel Y' Word8
+edgeNone, edgeWeak, edgeStrong :: Pixel (Y' SRGB) Word8
+edgeNone   = 0     :: Pixel (Y' SRGB) Word8
+edgeWeak   = 128   :: Pixel (Y' SRGB) Word8
+edgeStrong = 255   :: Pixel (Y' SRGB) Word8
 
 
-runCanny :: Float -> Float -> Image S (SRGB 'NonLinear) Word8 -> IO (Image S Y' Word8)
+runCanny :: Float -> Float -> Image S (SRGB 'NonLinear) Word8 -> IO (Image S (Y' SRGB) Word8)
 runCanny threshLow threshHigh arrInput = do
   arrGrey <- toGreyScale arrInput
   arrBluredX <- blurSepX arrGrey
@@ -47,18 +47,18 @@ runCanny threshLow threshHigh arrInput = do
   wildfire arrSuppress vStrong
 
 
-blur :: Image S Y' Float -> IO (Image S Y' Float)
+blur :: Image S (Y' SRGB) Float -> IO (Image S (Y' SRGB) Float)
 blur = blurSepX >=> blurSepY
 {-# INLINE blur #-}
 
 -------------------------------------------------------------------------------
 -- | SRGB to greyscale conversion.
-toGreyScale :: Image S (SRGB 'NonLinear) Word8 -> IO (Image S Y' Float)
+toGreyScale :: Image S (SRGB 'NonLinear) Word8 -> IO (Image S (Y' SRGB) Float)
 toGreyScale = computeIO . A.map rgbPixelLuma
 {-# INLINE toGreyScale #-}
 
 -- | Separable Gaussian blur in the X direction.
-blurSepX :: Image S Y' Float -> IO (Image S Y' Float)
+blurSepX :: Image S (Y' SRGB) Float -> IO (Image S (Y' SRGB) Float)
 blurSepX = computeIO . mapStencil Edge
   (makeStencil (Sz2 1 5) (0 :. 2) $ \get ->
        get (0 :. -2)     +
@@ -71,7 +71,7 @@ blurSepX = computeIO . mapStencil Edge
 
 
 -- | Separable Gaussian blur in the Y direction.
-blurSepY :: Image S Y' Float -> IO (Image S Y' Float)
+blurSepY :: Image S (Y' SRGB) Float -> IO (Image S (Y' SRGB) Float)
 blurSepY = computeIO . mapStencil Edge
   (makeStencil (Sz2 5 1) (2 :. 0) $ \get ->
        get (-2 :. 0)     +
@@ -83,17 +83,17 @@ blurSepY = computeIO . mapStencil Edge
 {-# INLINE blurSepY #-}
 
 -- | Compute gradient in the x direction.
-gradientX :: Image S Y' Float -> IO (Image S Y' Float)
+gradientX :: Image S (Y' SRGB) Float -> IO (Image S (Y' SRGB) Float)
 gradientX = computeIO . mapStencil Edge sobelX
 {-# INLINE gradientX #-}
 
 
 -- | Compute gradient in the y direction.
-gradientY :: Image S Y' Float -> IO (Image S Y' Float)
+gradientY :: Image S (Y' SRGB) Float -> IO (Image S (Y' SRGB) Float)
 gradientY = computeIO . mapStencil Edge sobelY
 {-# INLINE gradientY #-}
 
-sobelX :: Stencil Ix2 (Pixel Y' Float) (Pixel Y' Float)
+sobelX :: Stencil Ix2 (Pixel (Y' SRGB) Float) (Pixel (Y' SRGB) Float)
 sobelX = A.makeStencil (Sz2 3 3) (1 :. 1) $ \ f ->
                 f (-1 :. -1) -     f (-1 :.  1) +
             2 * f ( 0 :. -1) - 2 * f ( 0 :.  1) +
@@ -101,7 +101,7 @@ sobelX = A.makeStencil (Sz2 3 3) (1 :. 1) $ \ f ->
 {-# INLINE sobelX #-}
 
 
-sobelY :: Stencil Ix2 (Pixel Y' Float) (Pixel Y' Float)
+sobelY :: Stencil Ix2 (Pixel (Y' SRGB) Float) (Pixel (Y' SRGB) Float)
 sobelY =  A.makeStencil (Sz2 3 3) (1 :. 1) $ \ f ->
            f (-1 :. -1) + 2 * f (-1 :. 0) + f (-1 :. 1)
          - f ( 1 :. -1) - 2 * f ( 1 :. 0) - f ( 1 :. 1)
@@ -110,7 +110,7 @@ sobelY =  A.makeStencil (Sz2 3 3) (1 :. 1) $ \ f ->
 
 gradientMagOrient ::
      Float
-  -> Image S Y' Float
+  -> Image S (Y' SRGB) Float
   -> IO (Array U Ix2 (Float, Word8))
 gradientMagOrient !threshLow !img =
   computeIO $
@@ -120,11 +120,11 @@ gradientMagOrient !threshLow !img =
     img
   where
     !negThreshLow = negate threshLow
-    magnitude :: Pixel Y' Float -> Pixel Y' Float -> Float
+    magnitude :: Pixel (Y' SRGB) Float -> Pixel (Y' SRGB) Float -> Float
     magnitude (PixelY' x) (PixelY' y) = sqrt (x * x + y * y)
     {-# INLINE magnitude #-}
     {-# INLINE orientation #-}
-    orientation :: Pixel Y' Float -> Pixel Y' Float -> Word8
+    orientation :: Pixel (Y' SRGB) Float -> Pixel (Y' SRGB) Float -> Word8
     orientation (PixelY' x) (PixelY' y)
       -- Don't bother computing orientation if vector is below threshold.
       | x >= negThreshLow
@@ -162,7 +162,7 @@ gradientMagOrient !threshLow !img =
 {-# INLINE gradientMagOrient #-}
 
 
-suppress :: Float -> Float -> (Array U Ix2 (Float, Word8)) -> IO (Image S Y' Word8)
+suppress :: Float -> Float -> (Array U Ix2 (Float, Word8)) -> IO (Image S (Y' SRGB) Word8)
 suppress !threshLow !threshHigh !dMagOrient =
   computeIO $ mapStencil (Fill (0, 0)) (makeUnsafeStencil 3 1 comparePts) dMagOrient
   where
@@ -189,7 +189,7 @@ suppress !threshLow !threshHigh !dMagOrient =
 
 
 -- | Select indices of strong edges.
-selectStrong :: Image S Y' Word8 -> IO (Array S Ix1 Ix1)
+selectStrong :: Image S (Y' SRGB) Word8 -> IO (Array S Ix1 Ix1)
 selectStrong =
   computeIO .
   simapMaybe
@@ -202,9 +202,9 @@ selectStrong =
 
 
 wildfire ::
-     Image S Y' Word8 -- ^ Image with strong and weak edges set.
+     Image S (Y' SRGB) Word8 -- ^ Image with strong and weak edges set.
   -> Array S Ix1 Ix1
-  -> IO (Image S Y' Word8)
+  -> IO (Image S (Y' SRGB) Word8)
 wildfire img vStrong = do
   -- Stack of image indices we still need to consider.
   vStack <- A.unsafeNew (Sz lenImg)
@@ -217,7 +217,7 @@ wildfire img vStrong = do
     !sz = A.size img
     !lenImg = totalElem sz
     burn ::
-         MArray RealWorld S Ix2 (Pixel Y' Word8)
+         MArray RealWorld S Ix2 (Pixel (Y' SRGB) Word8)
       -> MArray RealWorld S Ix1 Ix1
       -> Int
       -> IO ()

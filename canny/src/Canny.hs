@@ -88,16 +88,16 @@ applyAccelerateCanny low high =
 
 
 
-toImageY ::
-     Array S Ix2 (Pixel (SRGB 'NonLinear) Word8)
-  -> Array S Ix2 (Pixel CM.Y Float)
-toImageY =
-  toImageBaseModel .
-  M.compute .
-  M.map ((\(PixelY' x) -> PixelY x :: Pixel (Y D65) Float) . rgbPixelLuma)
+-- toImageY ::
+--      Array S Ix2 (Pixel (SRGB 'NonLinear) Word8)
+--   -> Array S Ix2 (Pixel Y Float)
+-- toImageY =
+--   toImageBaseModel .
+--   M.compute .
+--   M.map ((\(PixelY' x) -> PixelY x :: Pixel (Y D65) Float) . rgbPixelLuma)
 
 toImageY' ::
-     Array S Ix2 (Pixel Y' Word8)
+     Array S Ix2 (Pixel (Y' SRGB) Word8)
   -> Array S Ix2 (Pixel (Y D65) Word8)
 toImageY' = M.compute . M.map ((\(PixelY' x) -> PixelY x :: Pixel (Y D65) Word8))
 
