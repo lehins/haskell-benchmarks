@@ -1,7 +1,11 @@
-resolver: lts-16.8
+resolver: lts-16.21
 packages:
 - .
 extra-deps:
-- ../../massiv/massiv
-- ../../haskell-scheduler/scheduler
+# - ../../massiv/massiv
+# - ../../haskell-scheduler/scheduler
 # - ../../pvar
+- massiv-0.5.5.0
+- pvar-1.0.0.0
+- scheduler-1.5.0
+- primitive-0.7.1.0@sha256:6a237bb338bcc43193077ff8e8c0f0ce2de14c652231496a15672e8b563a07e2,2604

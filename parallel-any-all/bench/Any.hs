@@ -1,6 +1,8 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
 import Control.Monad
@@ -18,6 +20,20 @@ import Data.Massiv.Array.Unsafe as A
 import qualified Data.Vector.Primitive as VP
 import Prelude
 import System.Mem
+import Data.Monoid
+
+import Control.Monad.Except
+import UnliftIO (MonadUnliftIO(..))
+import UnliftIO.Exception
+
+
+
+anyList :: (a -> Bool) -> [a] -> Bool
+anyList _ [] = False
+anyList f (x:xs) = f x || anyList f xs
+
+anyListMono :: Foldable t => (a -> Bool) -> t a -> Bool
+anyListMono p = getAny . foldMap (Any . p)
 
 loopMaybeM :: Monad m => b -> (b -> Bool) -> (b -> b) -> a -> (b -> a -> m (Maybe a)) -> m a
 loopMaybeM !startAt condition increment !initAcc f = go startAt initAcc
@@ -1213,3 +1229,71 @@ foldrArray f initAcc arr = go 0 initAcc
       | i < k = f (unsafeLinearIndex arr i) (go (i + 1) acc)
       | otherwise = acc
 {-# INLINE foldrArray #-}
+
+
+newtype InternalException e = InteralException { unInternalException :: e }
+  deriving (Eq, Show)
+
+instance Exception e => Exception (InternalException e)
+
+instance (MonadUnliftIO m, Exception e) => MonadUnliftIO (ExceptT e m) where
+  withRunInIO exceptToIO =
+    withExceptT unInternalException $ ExceptT $ try $
+      withRunInIO $ \runInIO ->
+        exceptToIO
+          (runInIO . (either (throwIO . InteralException) pure <=< runExceptT))
+
+-- instance (MonadUnliftIO m, Exception e) => MonadUnliftIO (ExceptT e m) where
+--   withRunInIO runExceptInIO =
+--     withExceptT unInternalException $
+--     ExceptT $
+--     withRunInIO $ \runInIO ->
+--       try $
+--       runExceptInIO $ \action ->
+--         runInIO $ either (throwIO . InteralException) pure =<< runExceptT action
+
+
+
+-- instance (MonadUnliftIO m, Exception e) => MonadUnliftIO (ExceptT e m) where
+--   withRunInIO exceptToIO =
+--     unwrap $
+--     ExceptT $
+--     try $ do
+--       withRunInIO $ \runInIO ->
+--         exceptToIO
+--           (runInIO . (either (throwIO . InteralException) pure <=< runExceptT))
+--     where
+--       unwrap :: MonadUnliftIO m => ExceptT (InternalException e) m a -> ExceptT e m a
+--       unwrap = mapExceptT $ fmap $ coerce
+
+
+data FooException = FooException
+  deriving (Eq, Show)
+
+instance Exception FooException
+
+
+bar :: IO ()
+bar = print =<< runExceptT (action :: ExceptT FooException IO Int)
+  where
+    action =
+      wrapper $ do
+        liftIO $ print "Starting"
+        _ <- throwError FooException
+        liftIO $ print "Impossible"
+        pure 5
+    wrapper inner =
+      catch inner $ \(exc :: FooException) -> 0 <$ liftIO (print $ "WHAT?? " ++ show exc)
+
+
+foo :: IO ()
+foo = print =<< runExceptT (action :: ExceptT FooException IO Int)
+  where
+    action =
+      wrapper $ do
+        liftIO $ print "Starting"
+        _ <- throwError FooException
+        liftIO $ print "Impossible"
+        pure 5
+    wrapper inner = do
+      catchAny inner $ \exc -> 0 <$ liftIO (print $ "Gotcha: " ++ show exc)
