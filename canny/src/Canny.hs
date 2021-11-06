@@ -57,7 +57,7 @@ applyYarrCanny ::
   -> IO (Image S (Y D65) Word8)
 applyYarrCanny low high =
   applyCanny
-    (Y.fromJuicyPixels)
+    Y.fromJuicyPixels
     (pure . Y.toJuicyPixels)
     (Y.runCanny (round low) (round high))
 

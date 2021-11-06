@@ -6,7 +6,6 @@ module Main where
 import Control.Monad
 import Criterion.Main
 import qualified Data.Array.Accelerate as A
-import qualified Data.Array.Accelerate.Examples.Internal as A
 import qualified Data.Array.Accelerate.LLVM.Native as CPU
 import qualified Data.Array.Repa.Repr.Accelerate as A
 import Data.Massiv.Array as M

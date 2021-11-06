@@ -210,7 +210,7 @@ wildfire img vStrong = do
   vStack <- A.unsafeNew (Sz lenImg)
   A.unsafeArrayLinearCopy vStrong 0 vStack 0 (size vStrong)
   -- Burn in new edges.
-  vImg <- A.new sz
+  vImg <- A.newMArray' sz
   burn vImg vStack (unSz (size vStrong))
   unsafeFreeze (getComp img) vImg
   where
