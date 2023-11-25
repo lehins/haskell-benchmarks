@@ -1,0 +1,74 @@
+name:                nub
+version:             0.1.0.0
+synopsis:            Short description
+description:         Please see the README on GitHub at <https://github.com/lehins/nub#readme>
+homepage:            https://github.com/lehins/nub
+license:             BSD3
+license-file:        LICENSE
+author:              Alexey Kuleshevich
+maintainer:          alexey@kuleshevi.ch
+copyright:           2022 Alexey Kuleshevich
+category:            Algorithms
+build-type:          Simple
+extra-source-files:  README.md
+                   , CHANGELOG.md
+cabal-version:       1.18
+tested-with:         GHC == 8.4.3
+                   , GHC == 8.4.4
+                   , GHC == 8.6.3
+                   , GHC == 8.6.4
+                   , GHC == 8.6.5
+                   , GHC == 8.8.1
+                   , GHC == 8.8.2
+                   , GHC == 8.10.1
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Lib
+
+  other-modules:
+  build-depends:       base >= 4.8 && < 5
+
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+                       -Wincomplete-record-updates
+                       -Wincomplete-uni-patterns
+                       -Wredundant-constraints
+
+
+executable nub
+  main-is: Main.hs
+  other-modules:
+      Paths_nub
+  hs-source-dirs:     app
+  ghc-options:        -Wall
+                      -Wincomplete-record-updates
+                      -Wincomplete-uni-patterns
+                      -Wredundant-constraints
+                      -O2
+                      -threaded
+                      -rtsopts
+                      -with-rtsopts=-N
+  build-depends:      base
+                    , nub
+  default-language: Haskell2010
+
+benchmark bench
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      bench
+  main-is:             Bench.hs
+  ghc-options:         -Wall
+                       -threaded
+                       -O2
+  build-depends:       base
+                     , containers
+                     , criterion
+                     , extra
+                     , nub
+                     , rio
+                     , random
+  default-language:    Haskell2010
+
+source-repository head
+  type:     git
+  location: https://github.com/lehins/nub
