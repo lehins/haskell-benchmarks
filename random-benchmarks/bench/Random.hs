@@ -6,17 +6,24 @@ module Main where
 
 import Control.Scheduler
 import Criterion.Main
+import Crypto.Cipher.ChaCha as ChaCha
 import Data.Bits
+import Data.ByteArray as BA
+import Data.ByteString.Builder as BS
+import Data.ByteString.Lazy as BL
 import Data.Int
+import Data.IORef
 import Data.Massiv.Array
 import Data.PCGen
 import Data.Word
+import Foreign.Storable (peek)
 import Lib
 import Random.MWC.Primitive as AC
 import Random.MWC.Pure as AC
 import Random.Xorshift.Int32
 import Random.Xorshift.Int64
 import System.Random
+import qualified System.Random.Mersenne as MT
 import System.Random.Mersenne.Pure64 as PureMT
 import System.Random.MWC as MWC
 import System.Random.PCG as PCG
@@ -24,13 +31,32 @@ import System.Random.PCG.Fast as FastPCG
 import System.Random.PCG.Fast.Pure as PureFastPCG
 import System.Random.PCG.Pure as PurePCG
 import System.Random.Random123
+import System.Random.SFMT as SFMT
 import System.Random.SplitMix as SM64
 import System.Random.SplitMix32 as SM32
-import System.Random.SFMT as SFMT
 import System.Random.TF as TF
-import qualified System.Random.Mersenne as MT
 import qualified System.Random.Xorshift128Plus as Xorshift128Plus
 import Text.Printf
+
+-- Very slow approach due to:
+--  * IORef indirection
+--  * generating only 8 bytes at a time
+--  * making a copy of that 8 bytes for each Word64 with `peek`
+--  * Unnecessary `fromIntegral`
+_chaChaNext :: Integral i => IORef ChaCha.StateSimple -> IO i
+_chaChaNext ref = do
+    !st <- readIORef ref
+    let (ba, st') = ChaCha.generateSimple st 8 :: (BA.Bytes, ChaCha.StateSimple)
+    !w64 <- BA.withByteArray ba (\ptr -> do peek ptr :: IO Word64)
+    writeIORef ref st'
+    return $ fromIntegral w64
+
+mkChaCha :: ChaCha.StateSimple
+mkChaCha = ChaCha.initializeSimple $ BL.toStrict $ BS.toLazyByteString $ BS.string7 "please insert 40 bytes of randomness here"
+
+theChaChaState :: IO (IORef ChaCha.StateSimple)
+theChaChaState = newIORef mkChaCha
+{-# NOINLINE theChaChaState #-}
 
 instance RandomGen AC.Seed where
   next !g =
@@ -45,6 +71,11 @@ instance RandomGen Xorshift128Plus.Gen where
       (w64, g') -> (fromIntegral w64, g')
   genRange _ = (fromIntegral (minBound :: Int64), fromIntegral (maxBound :: Int64))
   split _ = error "Xorshift128Plus does not support splitting"
+
+
+randomArrayChaChaWord64 :: ChaCha.StateSimple -> Sz1 -> Array S Ix1 Word64
+randomArrayChaChaWord64 state (Sz1 k) =
+  unsafeCastFromByteString Seq (fst (ChaCha.generateSimple state (k * 8)))
 
 
 printRanges :: IO ()
@@ -114,6 +145,7 @@ main = do
       !xor128Gen = Xorshift128Plus.initialize 2019
       !pcGen = mkPCGen (2019 :: Int)
       !sm32Gen = SM32.mkSMGen 2019
+      !chachaState = mkChaCha
   mwcSeqWS <- initWorkerStates Seq (const MWC.createSystemRandom)
   mwcParWS <- initWorkerStates Par (const MWC.createSystemRandom)
   sfmtSeqWS <- initWorkerStates Seq (const SFMT.createSystemRandom)
@@ -274,6 +306,8 @@ main = do
                   nfIO (randomArrayWord64 pcgFastSeqWS sz FastPCG.uniform)
                 , bench "mersenne-random" $
                   nfIO (randomArrayWord64 mtSeqWS sz MT.random)
+                , bench "chacha" $
+                  nf (randomArrayChaChaWord64 chachaState) sz
                 ]
             , bgroup
                 "Par"
